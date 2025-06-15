@@ -2,6 +2,8 @@
 
 ## 🎯 Complete Step-by-Step Deployment
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/YLCYUz?referralCode=CGGc7W)
+
 ### Prerequisites
 - GitHub account with this repository
 - Railway account (free tier works)
@@ -93,7 +95,7 @@ INTERNAL_SECRET = [generate with: openssl rand -hex 32]
 
 5. **Deploy the HPB service**
 
-### Step 8: Connect HPB to NextCloud
+### Step 9: Connect HPB to NextCloud
 
 1. **Go to NextCloud service**
 2. **Add environment variables**:
@@ -105,7 +107,7 @@ HPB_URL = https://your-hpb-service-url.railway.app
 
 3. **Redeploy NextCloud service**
 
-### Step 9: Configure Talk in NextCloud
+### Step 10: Configure Talk in NextCloud
 
 1. **Go to NextCloud admin → Settings → Talk**
 2. **Verify HPB connection shows green checkmark**
@@ -133,6 +135,18 @@ HPB_URL = https://your-hpb-service-url.railway.app
 ---
 
 ## 🚨 Common Issues & Solutions
+
+### Issue: "Service not accessible via public URL"
+**Solution**: 
+- Ensure Public Networking is set to **HTTP** (not "Unexposed")
+- Check that healthcheck path is set to `/status.php`
+- Wait for deployment to complete fully
+
+### Issue: "Build fails or startup errors"
+**Solution**: 
+- Remove any Pre-deploy Command (like `npm run migrate`)
+- Leave Custom Start Command empty
+- Check deployment logs for specific error messages
 
 ### Issue: "Database connection failed"
 **Solution**: Wait for MySQL service to fully deploy before starting NextCloud
