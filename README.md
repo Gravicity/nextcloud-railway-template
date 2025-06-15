@@ -61,7 +61,13 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
 
 ## 🔧 Post-Deployment
 
-After deployment, fix security warnings using Railway CLI:
+### Step 1: Complete NextCloud Setup
+1. **Visit your Railway URL** - you should see the NextCloud setup wizard
+2. **Create your admin account** using the web interface
+3. **Wait for setup to complete** - you should see the NextCloud dashboard
+
+### Step 2: Fix Security Warnings (Optional)
+**IMPORTANT**: Only run this AFTER step 1 is complete.
 
 ```bash
 # Install Railway CLI
@@ -71,7 +77,7 @@ npm install -g @railway/cli
 railway login
 railway link
 
-# Run the fix script
+# Run the fix script (only after setup is complete)
 railway run /usr/local/bin/fix-warnings.sh
 ```
 
