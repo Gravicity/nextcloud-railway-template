@@ -2,6 +2,8 @@
 
 A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, and security optimizations.
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/YLCYUz?referralCode=CGGc7W)
+
 ## ✅ What's Included
 
 - **NextCloud** with PostgreSQL and Redis
@@ -20,16 +22,18 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    - Add Redis service
    - Add this repository as a service
 3. **Set environment variables** in Railway dashboard:
-   - `POSTGRES_HOST`: `${{Postgres.RAILWAY_PRIVATE_DOMAIN}}`
-   - `POSTGRES_USER`: `${{Postgres.PGUSER}}`
-   - `POSTGRES_PASSWORD`: `${{Postgres.POSTGRES_PASSWORD}}`
-   - `POSTGRES_DB`: `${{Postgres.POSTGRES_DB}}`
-   - `REDIS_HOST`: `${{Redis.RAILWAY_PRIVATE_DOMAIN}}`
-   - `REDIS_HOST_PORT`: `${{Redis.REDISPORT}}`
-   - `REDIS_HOST_PASSWORD`: `${{Redis.REDIS_PASSWORD}}`
-   - `NEXTCLOUD_TRUSTED_DOMAINS`: `${{RAILWAY_PUBLIC_DOMAIN}} localhost`
-   - `NEXTCLOUD_ADMIN_USER`: Your admin username
-   - `NEXTCLOUD_ADMIN_PASSWORD`: Your admin password
+   ```
+   POSTGRES_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
+   POSTGRES_USER=${{Postgres.PGUSER}}
+   POSTGRES_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
+   POSTGRES_DB=${{Postgres.POSTGRES_DB}}
+   REDIS_HOST=${{Redis.RAILWAY_PRIVATE_DOMAIN}}
+   REDIS_HOST_PORT=${{Redis.REDISPORT}}
+   REDIS_HOST_PASSWORD=${{Redis.REDIS_PASSWORD}}
+   NEXTCLOUD_TRUSTED_DOMAINS=${{RAILWAY_PUBLIC_DOMAIN}} localhost
+   NEXTCLOUD_ADMIN_USER=your_admin_username (optional)
+   NEXTCLOUD_ADMIN_PASSWORD=your_admin_password (optional)
+   ```
 
 ### Option 2: Deploy from Template (When Available)
 
