@@ -14,14 +14,11 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
 
 ## 🚀 Deploy
 
-### Option 1: Use This Repository Directly
-
-1. **Fork this repository** to your GitHub account
-2. **Create Railway project** and add services:
+1. **Create Railway project** and add services:
    - Add PostgreSQL service
    - Add Redis service
-   - Add this repository as a service
-3. **Set environment variables** in Railway dashboard:
+   - Add this repository as a service (or fork first if you want to customize)
+2. **Set environment variables** in Railway dashboard:
    ```
    POSTGRES_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
    POSTGRES_USER=${{Postgres.PGUSER}}
@@ -35,15 +32,19 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    NEXTCLOUD_ADMIN_PASSWORD=your_admin_password (optional)
    ```
 
-### Option 2: Deploy from Template (When Available)
-
-Once published as a Railway template, you'll be able to one-click deploy.
-
 ## 🔧 Post-Deployment
 
-After deployment, fix security warnings:
+After deployment, fix security warnings using Railway CLI:
 
 ```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login and connect to your project
+railway login
+railway link
+
+# Run the fix script
 railway run /usr/local/bin/fix-warnings.sh
 ```
 
