@@ -27,6 +27,9 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    POSTGRES_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
    POSTGRES_DB=${{Postgres.POSTGRES_DB}}
    
+   # Alternative: Use DATABASE_URL (Railway auto-provides this)
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   
    # Redis Configuration
    REDIS_HOST=${{Redis.RAILWAY_PRIVATE_DOMAIN}}
    REDIS_HOST_PORT=${{Redis.REDISPORT}}
@@ -99,6 +102,8 @@ Generate secrets: `openssl rand -hex 32`
 - `HPB_URL` - Talk HPB service URL
 
 ## 🐛 Troubleshooting
+
+**Missing PostgreSQL environment variables:** Make sure you've set all environment variables in the Railway dashboard exactly as shown above. The service references like `${{Postgres.PGUSER}}` should auto-populate from your PostgreSQL service.
 
 **Setup wizard shows database fields:** Database should be pre-configured automatically. If you see database fields, check Railway logs for configuration errors.
 
