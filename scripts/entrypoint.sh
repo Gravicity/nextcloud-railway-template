@@ -1,175 +1,166 @@
-#!/bin/bash
-set -e
+# NextCloud Railway Template
 
-echo "🚀 Starting NextCloud Railway deployment..."
-echo "🐛 DEBUG: Current script: $0"
-echo "🐛 DEBUG: Process ID: $$"
-echo "🐛 DEBUG: All running scripts:"
-ps aux | grep -E "(entrypoint|fix-warnings)" || echo "No matching processes found"
+A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, and security optimizations.
 
-# Debug: Print all environment variables starting with POSTGRES or REDIS
-echo "🔍 Debug: Environment variables:"
-env | grep -E "^(POSTGRES|REDIS|RAILWAY|PG|NEXTCLOUD|PHP)" | sort
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/YLCYUz?referralCode=CGGc7W)
 
-# Also check for any database-related variables
-echo "🔍 Database-related variables:"
-env | grep -iE "(database|db|host)" | sort
+## ✅ What's Included
 
-# Check for environment variables - we need at least some PostgreSQL config
-if [ -z "$POSTGRES_HOST" ] && [ -z "$DATABASE_URL" ] && [ -z "$POSTGRES_USER" ]; then
-    echo "❌ No PostgreSQL configuration found!"
-    echo "Set either individual POSTGRES_* variables or DATABASE_URL"
-    echo "Available environment variables:"
-    env | grep -E "^(PG|POSTGRES|DATABASE)" | sort
-    exit 1
-fi
+- **NextCloud** with PostgreSQL and Redis
+- **Security optimizations** - PHP OPcache, security headers
+- **Performance tuning** - Database indices, caching configuration  
+- **Railway integration** - Optimized for Railway deployment
+- **Fix script** - Resolves NextCloud security warnings
 
-# If DATABASE_URL is provided, parse it
-if [ -n "$DATABASE_URL" ] && [ -z "$POSTGRES_HOST" ]; then
-    echo "📊 Parsing DATABASE_URL..."
-    export POSTGRES_HOST=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
-    export POSTGRES_PORT=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
-    export POSTGRES_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
-    export POSTGRES_PASSWORD=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
-    export POSTGRES_DB=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
-fi
+## 🚀 Deploy
 
-# Use Railway's standard PG* variables if POSTGRES_* aren't set
-export POSTGRES_HOST=${POSTGRES_HOST:-$PGHOST}
-export POSTGRES_PORT=${POSTGRES_PORT:-$PGPORT}
-export POSTGRES_USER=${POSTGRES_USER:-$PGUSER}
-export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-$PGPASSWORD}
-export POSTGRES_DB=${POSTGRES_DB:-$PGDATABASE}
+1. **Create Railway project** and add services:
+   - Add PostgreSQL service
+   - Add Redis service
+   - Add this repository as a service (or fork first if you want to customize)
+2. **Set environment variables** in Railway dashboard:
+   ```
+   # Database Configuration (Railway provides these automatically)
+   PGHOST=${{Postgres.PGHOST}}
+   PGPORT=${{Postgres.PGPORT}}
+   PGUSER=${{Postgres.PGUSER}}
+   PGPASSWORD=${{Postgres.PGPASSWORD}}
+   PGDATABASE=${{Postgres.PGDATABASE}}
+   
+   # Redis Configuration (Railway provides these automatically)
+   REDISHOST=${{Redis.REDISHOST}}
+   REDISPORT=${{Redis.REDISPORT}}
+   REDISPASSWORD=${{Redis.REDISPASSWORD}}
+   
+   # NextCloud Configuration (Required)
+   NEXTCLOUD_TRUSTED_DOMAINS=${{RAILWAY_PUBLIC_DOMAIN}} localhost
+   NEXTCLOUD_DATA_DIR=/var/www/html/data
+   NEXTCLOUD_TABLE_PREFIX=oc_
+   
+   # NextCloud Admin (Only set these for automatic setup)
+   # NEXTCLOUD_ADMIN_USER=admin
+   # NEXTCLOUD_ADMIN_PASSWORD=secure_password_here
+   
+   # Optional Performance Settings
+   # PHP_MEMORY_LIMIT=512M
+   # PHP_UPLOAD_LIMIT=2G
+   # NEXTCLOUD_UPDATE_CHECKER=false
+   ```
+   
+   > **Setup Options:**
+   > - **Manual Setup** (Recommended): Don't set `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` variables at all - use the web setup wizard
+   > - **Automatic Setup**: Uncomment and set both `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` for complete automation
+   > 
+   > **Important:** Database and Redis connections are pre-configured automatically in both cases.
+   
+   > **Security:** If using automatic setup, use a strong password for `NEXTCLOUD_ADMIN_PASSWORD`.
+   
+   > **Note:** `NEXTCLOUD_TRUSTED_DOMAINS` uses the public domain for security validation (allowed access domains), not for outbound connections, so no egress fees apply.
 
-# Set final defaults if still missing
-export POSTGRES_HOST=${POSTGRES_HOST:-localhost}
-export POSTGRES_PORT=${POSTGRES_PORT:-5432}
-export POSTGRES_USER=${POSTGRES_USER:-postgres}
-export POSTGRES_DB=${POSTGRES_DB:-nextcloud}
+## 🔧 Post-Deployment
 
-# Redis configuration
-export REDIS_HOST=${REDIS_HOST:-localhost}
-export REDIS_PORT=${REDIS_PORT:-6379}
-export REDIS_PASSWORD=${REDIS_PASSWORD:-}
+### Step 1: Complete NextCloud Setup
+1. **Visit your Railway URL** - you should see the NextCloud setup wizard
+2. **Create your admin account** using the web interface
+3. **Wait for setup to complete** - you should see the NextCloud dashboard
 
-# NextCloud configuration variables
-export NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-}
-export NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD:-}
-export NEXTCLOUD_DATA_DIR=${NEXTCLOUD_DATA_DIR:-/var/www/html/data}
-export NEXTCLOUD_TABLE_PREFIX=${NEXTCLOUD_TABLE_PREFIX:-oc_}
-export NEXTCLOUD_UPDATE_CHECKER=${NEXTCLOUD_UPDATE_CHECKER:-false}
+### Step 2: Fix Security Warnings (Optional)
+**IMPORTANT**: Only run this AFTER step 1 is complete.
 
-# PHP performance settings
-export PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT:-512M}
-export PHP_UPLOAD_LIMIT=${PHP_UPLOAD_LIMIT:-2G}
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
 
-# Configure Apache for Railway's PORT
-export PORT=${PORT:-80}
-echo "Listen $PORT" > /etc/apache2/ports.conf
-echo "✅ Apache configured for port: $PORT"
+# Login and connect to your project
+railway login
+railway link
 
-# Display configuration info  
-echo "📊 Final Configuration:"
-echo "📊 Database Config:"
-echo "  POSTGRES_HOST: ${POSTGRES_HOST}"
-echo "  POSTGRES_PORT: ${POSTGRES_PORT}"  
-echo "  POSTGRES_USER: ${POSTGRES_USER}"
-echo "  POSTGRES_DB: ${POSTGRES_DB}"
-echo "  Full connection: ${POSTGRES_USER}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
-echo "🔴 Redis Config:"
-echo "  REDIS_HOST: ${REDIS_HOST}"
-echo "  REDIS_PORT: ${REDIS_PORT}"
-echo "🌐 NextCloud Config:"
-echo "  Trusted domains: ${NEXTCLOUD_TRUSTED_DOMAINS}"
-echo "  Admin user: ${NEXTCLOUD_ADMIN_USER:-'(setup wizard)'}"
-echo "  Data directory: ${NEXTCLOUD_DATA_DIR}"
-echo "  Table prefix: ${NEXTCLOUD_TABLE_PREFIX}"
-echo "⚡ Performance Config:"
-echo "  PHP Memory Limit: ${PHP_MEMORY_LIMIT}"
-echo "  PHP Upload Limit: ${PHP_UPLOAD_LIMIT}"
+# Run the fix script (only after setup is complete)
+railway run /usr/local/bin/fix-warnings.sh
+```
 
-# Wait for NextCloud entrypoint to initialize first
-echo "🌟 Starting NextCloud with original entrypoint..."
+This automatically:
+- Adds missing database columns/indices
+- Runs mimetype migrations
+- Configures maintenance window  
+- Sets default phone region
+- Enables Redis caching
 
-# Create a hook script that runs after NextCloud initialization
-mkdir -p /docker-entrypoint-hooks.d/before-starting
+## 🏆 Performance Backend (Optional)
 
-cat > /docker-entrypoint-hooks.d/before-starting/01-setup-autoconfig.sh << 'EOF'
-#!/bin/bash
-echo "🔧 Setting up database auto-configuration..."
+For video calling, add a Talk High Performance Backend:
 
-# Debug: Show what we're working with
-echo "Hook script environment:"
-echo "  Database: ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
-echo "  Redis: ${REDIS_HOST}:${REDIS_PORT}"
-echo "  Admin user: ${NEXTCLOUD_ADMIN_USER:-'(setup wizard)'}"
-echo "  Data dir: ${NEXTCLOUD_DATA_DIR}"
-echo "  Table prefix: ${NEXTCLOUD_TABLE_PREFIX}"
+1. **Add new service** → **Docker Image**
+2. **Image**: `ghcr.io/nextcloud-releases/aio-talk:latest`
+3. **Environment variables**:
+   ```
+   NC_DOMAIN=${{RAILWAY_PUBLIC_DOMAIN}}
+   SIGNALING_SECRET=generate_32_char_secret
+   TURN_SECRET=generate_32_char_secret  
+   INTERNAL_SECRET=generate_32_char_secret
+   ```
+4. **In NextCloud service**, add:
+   ```
+   SIGNALING_SECRET=same_as_hpb_secret
+   HPB_URL=https://your-hpb-domain.railway.app
+   ```
 
-# Only create autoconfig if NextCloud isn't already installed
-if [ ! -f "/var/www/html/config/config.php" ]; then
-    mkdir -p /var/www/html/config
-    
-    # Test database connection first
-    echo "🔍 Testing database connection..."
-    if command -v pg_isready >/dev/null 2>&1; then
-        if pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER}"; then
-            echo "✅ Database connection test passed"
-        else
-            echo "⚠️ Database connection test failed - but continuing anyway"
-        fi
-    fi
-    
-    # Only create autoconfig.php if admin credentials are provided and not empty
-    # This prevents the infinite retry loop when using setup wizard
-    if [ -n "${NEXTCLOUD_ADMIN_USER:-}" ] && [ "${NEXTCLOUD_ADMIN_USER}" != "" ] && [ -n "${NEXTCLOUD_ADMIN_PASSWORD:-}" ] && [ "${NEXTCLOUD_ADMIN_PASSWORD}" != "" ]; then
-        echo "✅ Admin credentials provided - creating full autoconfig"
-        # Create autoconfig.php for complete automatic setup
-        cat > /var/www/html/config/autoconfig.php << AUTOEOF
-<?php
-\$AUTOCONFIG = array(
-    "dbtype" => "pgsql",
-    "dbname" => "${POSTGRES_DB}",
-    "dbuser" => "${POSTGRES_USER}",
-    "dbpass" => "${POSTGRES_PASSWORD}",
-    "dbhost" => "${POSTGRES_HOST}:${POSTGRES_PORT:-5432}",
-    "dbtableprefix" => "${NEXTCLOUD_TABLE_PREFIX}",
-    "directory" => "${NEXTCLOUD_DATA_DIR}",
-    "adminlogin" => "${NEXTCLOUD_ADMIN_USER}",
-    "adminpass" => "${NEXTCLOUD_ADMIN_PASSWORD}",
-    "trusted_domains" => array(
-        0 => "localhost",
-        1 => "${RAILWAY_PUBLIC_DOMAIN}",
-    ),
-);
-AUTOEOF
-        # Set proper ownership and permissions for autoconfig
-        chown www-data:www-data /var/www/html/config/autoconfig.php
-        chmod 640 /var/www/html/config/autoconfig.php
-    else
-        echo "✅ No admin credentials - setup wizard will be used"
-        echo "✅ Not creating any config files - NextCloud will show setup wizard"
-        # Don't create any config files - let NextCloud handle setup wizard completely
-        # Just ensure the config directory exists with proper permissions
-        mkdir -p /var/www/html/config
-        chown www-data:www-data /var/www/html/config
-        chmod 750 /var/www/html/config
-    fi
-    
-    echo "✅ Configuration created successfully"
-    echo "Database host configured as: ${POSTGRES_HOST}:${POSTGRES_PORT:-5432}"
-else
-    echo "✅ NextCloud already configured"
-fi
-EOF
+Generate secrets: `openssl rand -hex 32`
 
-chmod +x /docker-entrypoint-hooks.d/before-starting/01-setup-autoconfig.sh
+## 📊 Environment Variables
 
-# Forward to original NextCloud entrypoint
-echo "🐛 DEBUG: About to exec original NextCloud entrypoint"
-echo "🐛 DEBUG: Command: /entrypoint.sh apache2-foreground"
-echo "🐛 DEBUG: Current working directory: $(pwd)"
-echo "🐛 DEBUG: Contents of /usr/local/bin/:"
-ls -la /usr/local/bin/ | grep -E "(entrypoint|fix-warnings)"
+### Database (Auto-configured by Railway):
+- `PGHOST` - PostgreSQL host (Railway provides automatically)
+- `PGPORT` - PostgreSQL port (Railway provides automatically)  
+- `PGUSER` - PostgreSQL username (Railway provides automatically)
+- `PGPASSWORD` - PostgreSQL password (Railway provides automatically)
+- `PGDATABASE` - PostgreSQL database name (Railway provides automatically)
 
-exec /entrypoint.sh apache2-foreground
+### Redis (Auto-configured by Railway):
+- `REDISHOST` - Redis host (set to `${{Redis.REDISHOST}}`)
+- `REDISPORT` - Redis port (set to `${{Redis.REDISPORT}}`)
+- `REDISPASSWORD` - Redis password (set to `${{Redis.REDISPASSWORD}}`)
+
+### NextCloud Configuration (Required):
+- `NEXTCLOUD_TRUSTED_DOMAINS` - Allowed domains for access security
+
+### NextCloud Admin (Optional - for automatic setup):
+- `NEXTCLOUD_ADMIN_USER` - Admin username for automatic setup
+- `NEXTCLOUD_ADMIN_PASSWORD` - Admin password for automatic setup
+- **Don't set these variables at all to use the web setup wizard instead**
+
+### NextCloud Required Settings:
+- `NEXTCLOUD_DATA_DIR` - Data directory path (set to `/var/www/html/data`)
+- `NEXTCLOUD_TABLE_PREFIX` - Database table prefix (set to `oc_`)
+
+### NextCloud Optional Settings:
+- `NEXTCLOUD_UPDATE_CHECKER` - Enable update checker (default: `false`)
+- `PHP_MEMORY_LIMIT` - PHP memory limit (default: `512M`)
+- `PHP_UPLOAD_LIMIT` - File upload size limit (default: `2G`)
+
+### Talk High Performance Backend (Optional):
+- `SIGNALING_SECRET` - Talk HPB secret
+- `HPB_URL` - Talk HPB service URL
+
+## 🐛 Troubleshooting
+
+**Missing PostgreSQL environment variables:** Make sure you've set all environment variables in the Railway dashboard exactly as shown above. The service references like `${{Postgres.PGHOST}}` should auto-populate from your PostgreSQL service.
+
+**Setup wizard shows database fields:** Database should be pre-configured automatically. If you see database fields, check Railway logs for configuration errors.
+
+**PostgreSQL connection fails:** Ensure all `PG*` environment variables are correctly set with Railway service references (PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE).
+
+**Redis connection fails:** Ensure all Redis environment variables are correctly set (REDISHOST, REDISPORT, REDISPASSWORD).
+
+**Security warnings:** Run the fix script after completing setup.
+
+**Performance issues:** Consider upgrading Railway plan or adding Talk HPB.
+
+## 📖 Resources
+
+- [NextCloud Documentation](https://docs.nextcloud.com/)
+- [Railway Documentation](https://docs.railway.com/)
+
+---
+
+**🎉 Deploy NextCloud with zero security warnings on Railway!**
