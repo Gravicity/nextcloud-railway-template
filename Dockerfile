@@ -23,7 +23,9 @@ COPY config/apache-security.conf /etc/apache2/conf-available/apache-security.con
 
 # Enable Apache configurations and modules
 RUN a2enconf security apache-security && \
-    a2enmod rewrite headers env dir mime
+    a2enmod rewrite headers env dir mime && \
+    # Enable PHP module (version may vary)
+    (a2enmod php8.3 || a2enmod php || echo "PHP module detection will be handled in entrypoint")
 
 # Copy supervisor configuration
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -35,7 +37,10 @@ RUN chmod +x /usr/local/bin/custom-entrypoint.sh
 # Create necessary directories and set permissions
 RUN mkdir -p /var/log/supervisor && \
     chown -R www-data:www-data /var/www/html && \
-    chmod +x /usr/local/bin/custom-entrypoint.sh
+    chmod +x /usr/local/bin/custom-entrypoint.sh && \
+    # Ensure NextCloud files have correct permissions
+    find /var/www/html -type f -exec chmod 644 {} \; && \
+    find /var/www/html -type d -exec chmod 755 {} \;
 
 # Expose HTTP port
 EXPOSE 80
