@@ -37,7 +37,7 @@ else
     echo "🔴 Using individual Redis environment variables"
 fi
 
-# Set Railway domain
+# Set Railway domain and port
 export NC_DOMAIN=${RAILWAY_PUBLIC_DOMAIN:-localhost}
 export RAILWAY_PORT=${PORT:-80}
 
@@ -46,11 +46,19 @@ echo "📊 Database: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 echo "🔴 Redis: ${REDIS_HOST}:${REDIS_PORT}"
 echo "🚢 Railway Port: ${RAILWAY_PORT}"
 
-# Configure Apache for Railway's PORT
+# Set NextCloud environment variables for auto-configuration
+export MYSQL_HOST="$DB_HOST"
+export MYSQL_PORT="$DB_PORT"
+export MYSQL_USER="$DB_USER"
+export MYSQL_PASSWORD="$DB_PASS"
+export MYSQL_DATABASE="$DB_NAME"
+export REDIS_HOST="$REDIS_HOST"
+export REDIS_HOST_PORT="$REDIS_PORT"
+
+# Configure Apache for Railway's PORT before starting
 echo "🌐 Configuring Apache for Railway..."
 echo "Listen ${RAILWAY_PORT}" > /etc/apache2/ports.conf
 
-# Create proper Apache virtual host configuration
 cat > /etc/apache2/sites-available/000-default.conf << EOF
 <VirtualHost *:${RAILWAY_PORT}>
     ServerAdmin webmaster@localhost
@@ -71,89 +79,44 @@ EOF
 
 echo "✅ Apache configured for port: ${RAILWAY_PORT}"
 
-# Verify NextCloud files
-if [ -f "/var/www/html/index.php" ]; then
-    echo "✅ NextCloud files found"
-else
-    echo "❌ NextCloud files missing!"
-    ls -la /var/www/html/
-fi
+# Set up cron jobs
+echo "⏰ Setting up NextCloud cron jobs..."
+echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
+echo "✅ Cron jobs configured!"
 
-# Wait for database if needed
-if [ -n "$DB_HOST" ] && [ "$DB_HOST" != "localhost" ]; then
-    echo "⏳ Waiting for database..."
-    for i in {1..30}; do
-        if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
-            echo "✅ Database ready!"
-            break
-        fi
-        echo "⏳ Database not ready, attempt $i/30..."
-        sleep 2
-    done
-fi
+# Create a background script to enhance configuration after NextCloud starts
+cat > /usr/local/bin/enhance-nextcloud.sh << EOSCRIPT
+#!/bin/bash
 
-# Wait for Redis if needed
-if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "localhost" ]; then
-    echo "⏳ Waiting for Redis..."
-    for i in {1..30}; do
-        if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping > /dev/null 2>&1; then
-            echo "✅ Redis ready!"
-            break
-        fi
-        echo "⏳ Redis not ready, attempt $i/30..."
-        sleep 2
-    done
-fi
+# Import environment variables
+export NC_DOMAIN="$NC_DOMAIN"
+export REDIS_HOST="$REDIS_HOST"
+export REDIS_PORT="$REDIS_PORT"
 
-# Create initial NextCloud configuration (only if no config exists)
-create_initial_config() {
-    if [ ! -f "/var/www/html/config/config.php" ]; then
-        echo "🔧 Creating initial NextCloud configuration..."
-        mkdir -p /var/www/html/config
+echo "🔧 Waiting for NextCloud to be fully initialized..."
+sleep 30
 
-        cat > /var/www/html/config/config.php << EOF
-<?php
-\$CONFIG = array(
-  'dbtype' => 'mysql',
-  'dbname' => '${DB_NAME}',
-  'dbhost' => '${DB_HOST}',
-  'dbport' => '${DB_PORT}',
-  'dbtableprefix' => 'oc_',
-  'mysql.utf8mb4' => true,
-  'dbuser' => '${DB_USER}',
-  'dbpassword' => '${DB_PASS}',
-
-  'trusted_domains' => array(
-    0 => '${NC_DOMAIN}',
-    1 => 'localhost',
-  ),
-  'overwriteprotocol' => 'https',
-  'overwritehost' => '${NC_DOMAIN}',
-  'overwritecliurl' => 'https://${NC_DOMAIN}',
-  
-  'datadirectory' => '/var/www/html/data',
-  'installed' => false,
-);
-EOF
-
-        chown www-data:www-data /var/www/html/config/config.php
-        chmod 640 /var/www/html/config/config.php
-        echo "✅ Initial NextCloud configuration created!"
-    else
-        echo "ℹ️ NextCloud config already exists, skipping initial creation"
+# Wait for config file to exist and be populated
+for i in {1..30}; do
+    if [ -f "/var/www/html/config/config.php" ] && grep -q "dbtype" /var/www/html/config/config.php 2>/dev/null; then
+        echo "✅ NextCloud config found, enhancing..."
+        break
     fi
-}
+    echo "⏳ Waiting for NextCloud config... ($i/30)"
+    sleep 10
+done
 
-# Enhance existing NextCloud configuration with our optimizations
-enhance_nextcloud_config() {
-    if [ -f "/var/www/html/config/config.php" ]; then
-        echo "🔧 Enhancing NextCloud configuration with optimizations..."
-        
-        # Backup original config
-        cp /var/www/html/config/config.php /var/www/html/config/config.php.backup
-        
-        # Use PHP to merge our enhancements into existing config
-        php << 'EOPHP'
+# Check if we found the config
+if [ ! -f "/var/www/html/config/config.php" ] || ! grep -q "dbtype" /var/www/html/config/config.php 2>/dev/null; then
+    echo "⚠️ NextCloud config not found after waiting, skipping enhancements"
+    exit 0
+fi
+
+# Enhance configuration with PHP
+echo "🔧 Applying Railway optimizations to NextCloud config..."
+cp /var/www/html/config/config.php /var/www/html/config/config.php.backup
+
+php << 'EOPHP'
 <?php
 $configFile = '/var/www/html/config/config.php';
 if (file_exists($configFile)) {
@@ -198,76 +161,35 @@ if (file_exists($configFile)) {
     
     // Write enhanced config
     $output = "<?php\n\$CONFIG = " . var_export($CONFIG, true) . ";\n";
-    file_put_contents($configFile, $output);
-    echo "✅ NextCloud configuration enhanced with optimizations!\n";
+    if (file_put_contents($configFile, $output)) {
+        echo "✅ NextCloud configuration enhanced with Railway optimizations!\n";
+    } else {
+        echo "❌ Failed to write enhanced configuration\n";
+        exit(1);
+    }
 } else {
     echo "❌ Config file not found for enhancement\n";
+    exit(1);
 }
 EOPHP
 
-        chown www-data:www-data /var/www/html/config/config.php
-        chmod 640 /var/www/html/config/config.php
-    else
-        echo "⚠️ No existing config found to enhance"
-    fi
-}
+# Set proper ownership and permissions
+chown www-data:www-data /var/www/html/config/config.php 2>/dev/null || echo "⚠️ Could not set config file ownership"
+chmod 640 /var/www/html/config/config.php 2>/dev/null || echo "⚠️ Could not set config file permissions"
 
-# Set up cron jobs
-echo "⏰ Setting up NextCloud cron jobs..."
-echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
-echo "✅ Cron jobs configured!"
+echo "🎉 NextCloud Railway optimization complete!"
+echo "✨ Enhancements applied:"
+echo "   - Redis caching enabled"
+echo "   - Railway proxy settings configured" 
+echo "   - Security headers optimized"
+echo "   - Performance settings tuned"
+EOSCRIPT
 
-# If NextCloud files are missing, run the original entrypoint first
-if [ ! -f "/var/www/html/index.php" ]; then
-    echo "🔄 NextCloud files missing - running original entrypoint to initialize..."
-    
-    # Set NextCloud auto-configuration environment variables
-    export NEXTCLOUD_INIT_HTACCESS=true
-    export MYSQL_HOST="$DB_HOST"
-    export MYSQL_PORT="$DB_PORT"
-    export MYSQL_USER="$DB_USER"
-    export MYSQL_PASSWORD="$DB_PASS"
-    export MYSQL_DATABASE="$DB_NAME"
-    export REDIS_HOST="$REDIS_HOST"
-    export REDIS_HOST_PORT="$REDIS_PORT"
-    
-    # Run original NextCloud entrypoint in background to populate files
-    /entrypoint.sh apache2-foreground &
-    ORIGINAL_PID=$!
-    
-    # Wait for NextCloud initialization to complete
-    for i in {1..60}; do
-        if [ -f "/var/www/html/config/config.php" ] && grep -q "installed.*true" /var/www/html/config/config.php 2>/dev/null; then
-            echo "✅ NextCloud initialization complete!"
-            # Kill the background process
-            kill $ORIGINAL_PID 2>/dev/null || true
-            sleep 2
-            break
-        elif [ -f "/var/www/html/index.php" ]; then
-            echo "📁 NextCloud files available, waiting for config... ($i/60)"
-        else
-            echo "⏳ Waiting for NextCloud initialization... ($i/60)"
-        fi
-        sleep 2
-    done
-    
-    # Now enhance the configuration with our optimizations
-    echo "🔧 Enhancing NextCloud configuration..."
-    enhance_nextcloud_config
-else
-    echo "✅ NextCloud files already present"
-    # Create initial config for first-time setup
-    create_initial_config
-fi
+chmod +x /usr/local/bin/enhance-nextcloud.sh
 
-# Final verification
-if [ -f "/var/www/html/index.php" ]; then
-    echo "✅ NextCloud ready for startup"
-else
-    echo "❌ NextCloud files still missing after initialization!"
-    exit 1
-fi
+# Start the enhancement script in background
+/usr/local/bin/enhance-nextcloud.sh &
 
-# Start supervisor
-echo "🌟 Starting NextCloud with supervisor..."
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+# Now run the original NextCloud entrypoint
+echo "🌟 Starting NextCloud with original entrypoint..."
+exec /entrypoint.sh apache2-foreground
