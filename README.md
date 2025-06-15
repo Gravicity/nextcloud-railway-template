@@ -47,9 +47,13 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    PHP_UPLOAD_LIMIT=2G
    ```
    
-   > **Important:** Database and Redis connections are pre-configured automatically. You can either use the setup wizard to create an admin account, or set `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` for automatic setup.
+   > **Setup Options:**
+   > - **Manual Setup**: Leave `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` empty to use the web setup wizard
+   > - **Automatic Setup**: Set both `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` for complete automation
+   > 
+   > **Important:** Database and Redis connections are pre-configured automatically in both cases.
    
-   > **Security:** Change the default admin password to something secure before deployment.
+   > **Security:** If using automatic setup, use a strong password for `NEXTCLOUD_ADMIN_PASSWORD`.
    
    > **Note:** `NEXTCLOUD_TRUSTED_DOMAINS` uses the public domain for security validation (allowed access domains), not for outbound connections, so no egress fees apply.
 
@@ -114,10 +118,10 @@ Generate secrets: `openssl rand -hex 32`
 ### NextCloud Configuration (Required):
 - `NEXTCLOUD_TRUSTED_DOMAINS` - Allowed domains for access security
 
-### NextCloud Admin (Optional):
+### NextCloud Admin (Optional - for automatic setup):
 - `NEXTCLOUD_ADMIN_USER` - Admin username for automatic setup
 - `NEXTCLOUD_ADMIN_PASSWORD` - Admin password for automatic setup
-- If not set, you'll use the setup wizard to create admin account
+- **Leave both empty to use the web setup wizard instead**
 
 ### NextCloud Optional Settings:
 - `NEXTCLOUD_DATA_DIR` - Data directory path (default: `/var/www/html/data`)
