@@ -44,8 +44,8 @@ RUN mkdir -p /var/log/supervisor && \
     find /var/www/html -type d -exec chmod 755 {} \; && \
     chmod +x /usr/local/bin/custom-entrypoint.sh
 
-# Expose HTTP port
-EXPOSE 80
+# Expose HTTP port (Railway uses PORT env variable)
+EXPOSE 8080
 
 # Use custom entrypoint (handles everything including starting supervisord)
 ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
