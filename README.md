@@ -19,6 +19,8 @@ After deployment, these NextCloud warnings will be **RESOLVED**:
 
 ## 🚀 Quick Deploy
 
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/YLCYUz?referralCode=CGGc7W)
+
 ### Step 1: Create Services in Railway
 
 1. **Create new project** in Railway
