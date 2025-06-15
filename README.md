@@ -20,17 +20,24 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    - Add this repository as a service (or fork first if you want to customize)
 2. **Set environment variables** in Railway dashboard:
    ```
+   # Database Configuration (required for auto-setup)
    POSTGRES_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
    POSTGRES_USER=${{Postgres.PGUSER}}
    POSTGRES_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
    POSTGRES_DB=${{Postgres.POSTGRES_DB}}
+   
+   # Redis Configuration
    REDIS_HOST=${{Redis.RAILWAY_PRIVATE_DOMAIN}}
    REDIS_HOST_PORT=${{Redis.REDISPORT}}
    REDIS_HOST_PASSWORD=${{Redis.REDIS_PASSWORD}}
+   
+   # NextCloud Configuration
    NEXTCLOUD_TRUSTED_DOMAINS=${{RAILWAY_PUBLIC_DOMAIN}} localhost
-   NEXTCLOUD_ADMIN_USER=your_admin_username (optional)
-   NEXTCLOUD_ADMIN_PASSWORD=your_admin_password (optional)
    ```
+
+   > **Important:** Database connection is pre-configured automatically. You'll only need to create an admin account through the setup wizard.
+   
+   > **Note:** `NEXTCLOUD_TRUSTED_DOMAINS` uses the public domain for security validation (allowed access domains), not for outbound connections, so no egress fees apply.
 
 ## 🔧 Post-Deployment
 
@@ -83,9 +90,8 @@ Generate secrets: `openssl rand -hex 32`
 - `REDIS_*` - Cache connection
 - `NEXTCLOUD_TRUSTED_DOMAINS` - Railway domain
 
-### Required (you set):
-- `NEXTCLOUD_ADMIN_USER` - Admin username
-- `NEXTCLOUD_ADMIN_PASSWORD` - Admin password
+### User Setup:
+- Create admin account through web setup wizard (database pre-configured)
 
 ### Optional (for Talk):
 - `SIGNALING_SECRET` - Talk HPB secret
@@ -93,9 +99,11 @@ Generate secrets: `openssl rand -hex 32`
 
 ## 🐛 Troubleshooting
 
-**Setup screen still shows:** This is normal - enter your admin credentials and click Install. Database will auto-configure.
+**Setup wizard shows database fields:** Database should be pre-configured automatically. If you see database fields, check Railway logs for configuration errors.
 
-**Security warnings:** Run the fix script after deployment.
+**PostgreSQL connection fails:** Ensure all `POSTGRES_*` environment variables are correctly set with Railway service references.
+
+**Security warnings:** Run the fix script after completing setup.
 
 **Performance issues:** Consider upgrading Railway plan or adding Talk HPB.
 
