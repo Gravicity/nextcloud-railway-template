@@ -1,29 +1,39 @@
 # NextCloud Railway Template
 
-A production-ready NextCloud deployment template for Railway.com with PostgreSQL, Redis, and security optimizations.
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy)
+A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, and security optimizations.
 
 ## ✅ What's Included
 
 - **NextCloud** with PostgreSQL and Redis
 - **Security optimizations** - PHP OPcache, security headers
 - **Performance tuning** - Database indices, caching configuration  
-- **Railway integration** - Automatic environment variable configuration
+- **Railway integration** - Optimized for Railway deployment
 - **Fix script** - Resolves NextCloud security warnings
 
 ## 🚀 Deploy
 
-1. **Click "Deploy on Railway"** button above
-2. **Set required variables**:
-   - `NEXTCLOUD_ADMIN_USER` - Your admin username
-   - `NEXTCLOUD_ADMIN_PASSWORD` - Your admin password
-3. **Deploy** - Services will auto-configure
+### Option 1: Use This Repository Directly
 
-The template deploys 3 services:
-- **PostgreSQL** - Database
-- **Redis** - Caching  
-- **NextCloud** - Application
+1. **Fork this repository** to your GitHub account
+2. **Create Railway project** and add services:
+   - Add PostgreSQL service
+   - Add Redis service
+   - Add this repository as a service
+3. **Set environment variables** in Railway dashboard:
+   - `POSTGRES_HOST`: `${{Postgres.RAILWAY_PRIVATE_DOMAIN}}`
+   - `POSTGRES_USER`: `${{Postgres.PGUSER}}`
+   - `POSTGRES_PASSWORD`: `${{Postgres.POSTGRES_PASSWORD}}`
+   - `POSTGRES_DB`: `${{Postgres.POSTGRES_DB}}`
+   - `REDIS_HOST`: `${{Redis.RAILWAY_PRIVATE_DOMAIN}}`
+   - `REDIS_HOST_PORT`: `${{Redis.REDISPORT}}`
+   - `REDIS_HOST_PASSWORD`: `${{Redis.REDIS_PASSWORD}}`
+   - `NEXTCLOUD_TRUSTED_DOMAINS`: `${{RAILWAY_PUBLIC_DOMAIN}} localhost`
+   - `NEXTCLOUD_ADMIN_USER`: Your admin username
+   - `NEXTCLOUD_ADMIN_PASSWORD`: Your admin password
+
+### Option 2: Deploy from Template (When Available)
+
+Once published as a Railway template, you'll be able to one-click deploy.
 
 ## 🔧 Post-Deployment
 
