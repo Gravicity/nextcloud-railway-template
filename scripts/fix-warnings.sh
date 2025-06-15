@@ -5,6 +5,8 @@
 set -e
 
 echo "🔧 Fixing NextCloud Security & Setup Warnings..."
+echo "⚠️  IMPORTANT: This script should only be run AFTER NextCloud setup is complete!"
+echo ""
 
 # Function to run occ commands as www-data user
 run_occ() {
@@ -16,12 +18,32 @@ run_occ() {
     fi
 }
 
-# Wait for NextCloud to be ready
-echo "⏳ Waiting for NextCloud to be ready..."
-until run_occ status | grep -q "installed: true"; do
-    echo "⏳ NextCloud not ready yet, waiting..."
-    sleep 10
-done
+# Check if NextCloud is installed
+echo "🔍 Checking NextCloud installation status..."
+
+# First check if the occ file exists
+if [ ! -f "/var/www/html/occ" ]; then
+    echo "❌ NextCloud occ command not found!"
+    echo "   This usually means NextCloud is still starting up."
+    echo "   Please wait for NextCloud to fully start before running this script."
+    echo ""
+    echo "   You can check if NextCloud is ready by visiting your Railway URL."
+    echo "   Once you see the NextCloud interface (setup wizard or login), you can run this script."
+    exit 1
+fi
+
+# Check if NextCloud is installed
+if ! run_occ status 2>/dev/null | grep -q "installed: true"; then
+    echo "❌ NextCloud is not yet installed!"
+    echo "   Please complete the NextCloud setup first:"
+    echo "   1. Visit your Railway URL"
+    echo "   2. Complete the setup wizard (create admin account)"
+    echo "   3. Then run this script to fix security warnings"
+    echo ""
+    echo "   Current NextCloud status:"
+    run_occ status 2>/dev/null || echo "   (NextCloud not responding)"
+    exit 1
+fi
 
 echo "✅ NextCloud is ready, proceeding with fixes..."
 
