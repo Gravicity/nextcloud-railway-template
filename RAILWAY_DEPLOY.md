@@ -47,7 +47,12 @@
 3. **Connect GitHub** (if not already connected)
 4. **Choose your forked repository**
 5. **Railway will auto-detect** the Dockerfile
-6. **Click "Deploy"**
+6. **Add Database Reference Variables:**
+   - Go to Variables tab
+   - Add: `DATABASE_URL` = `${{MySQL.MYSQL_URL}}`
+   - Add: `REDIS_URL` = `${{Redis.REDIS_URL}}`
+   - (Replace service names with your actual service names)
+7. **Click "Deploy"**
 
 **Wait for deployment** (5-10 minutes for first build)
 
@@ -139,8 +144,8 @@ HPB_URL = https://your-hpb-service-url.railway.app
 ### Issue: "Service not accessible via public URL"
 **Solution**: 
 - Ensure Public Networking is set to **HTTP** (not "Unexposed")
-- Check that healthcheck path is set to `/status.php`
-- Wait for deployment to complete fully
+- Wait for deployment to complete fully (can take 5-10 minutes)
+- Check Deploy Logs for any startup errors
 
 ### Issue: "Build fails or startup errors"
 **Solution**: 
