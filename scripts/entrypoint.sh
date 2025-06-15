@@ -39,7 +39,10 @@ fi
 
 # Set Railway domain and port
 export NC_DOMAIN=${RAILWAY_PUBLIC_DOMAIN:-localhost}
-export RAILWAY_PORT=${PORT:-80}
+export RAILWAY_PORT=${PORT:-8080}
+
+# Set trusted domains for NextCloud
+export NEXTCLOUD_TRUSTED_DOMAINS="$NC_DOMAIN localhost"
 
 echo "🌐 NextCloud will be available at: https://${NC_DOMAIN}"
 echo "📊 Database: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
@@ -94,16 +97,16 @@ export REDIS_HOST="$REDIS_HOST"
 export REDIS_PORT="$REDIS_PORT"
 
 echo "🔧 Waiting for NextCloud to be fully initialized..."
-sleep 30
+sleep 15
 
 # Wait for config file to exist and be populated
-for i in {1..30}; do
+for i in {1..60}; do
     if [ -f "/var/www/html/config/config.php" ] && grep -q "dbtype" /var/www/html/config/config.php 2>/dev/null; then
         echo "✅ NextCloud config found, enhancing..."
         break
     fi
-    echo "⏳ Waiting for NextCloud config... ($i/30)"
-    sleep 10
+    echo "⏳ Waiting for NextCloud config... (\$i/60)"
+    sleep 5
 done
 
 # Check if we found the config
@@ -121,6 +124,12 @@ php << 'EOPHP'
 $configFile = '/var/www/html/config/config.php';
 if (file_exists($configFile)) {
     include $configFile;
+    
+    // Add Railway domain to trusted domains if not already present
+    $railwayDomain = getenv('NC_DOMAIN') ?: 'localhost';
+    if (!in_array($railwayDomain, $CONFIG['trusted_domains'])) {
+        $CONFIG['trusted_domains'][] = $railwayDomain;
+    }
     
     // Merge our optimizations
     $CONFIG = array_merge($CONFIG, array(
