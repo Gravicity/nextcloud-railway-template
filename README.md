@@ -2,8 +2,6 @@
 
 A production-ready NextCloud deployment optimized for Railway.com with PostgreSQL, Redis, and security warnings fixed.
 
-> **⚠️ Important**: This template uses PostgreSQL (not MySQL) to match Railway's working template structure.
-
 ## ✅ What This Template Fixes
 
 After deployment, these NextCloud warnings will be **RESOLVED**:
@@ -119,7 +117,7 @@ npm install -g @railway/cli
 # Login and create project
 railway login
 railway add
-railway add mysql
+railway add postgresql
 railway add redis
 
 # Deploy the NextCloud service
@@ -147,7 +145,7 @@ After deployment:
 ## 🔧 Environment Variables Reference
 
 ### Required (Auto-provided by Railway)
-- `DATABASE_URL` - MySQL connection (auto-set by Railway)
+- `DATABASE_URL` - PostgreSQL connection (auto-set by Railway)
 - `REDIS_URL` - Redis connection (auto-set by Railway)
 - `RAILWAY_PUBLIC_DOMAIN` - Your domain (auto-set by Railway)
 
@@ -157,7 +155,7 @@ After deployment:
 
 ### Advanced (Optional)
 - `NC_DOMAIN` - Custom domain (defaults to RAILWAY_PUBLIC_DOMAIN)
-- `MYSQL_*` - Individual DB settings (if not using DATABASE_URL)
+- `POSTGRES_*` - Individual DB settings (if not using DATABASE_URL)
 - `REDIS_*` - Individual Redis settings (if not using REDIS_URL)
 
 ## 🐛 Troubleshooting
@@ -165,7 +163,7 @@ After deployment:
 ### NextCloud Won't Start
 - Check Railway logs for errors
 - Verify DATABASE_URL and REDIS_URL are set
-- Ensure MySQL and Redis services are running
+- Ensure PostgreSQL and Redis services are running
 
 ### Security Warnings Still Show
 - Wait 10-15 minutes after first deployment
