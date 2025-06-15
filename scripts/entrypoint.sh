@@ -116,8 +116,12 @@ if [ ! -f "/var/www/html/config/config.php" ]; then
         fi
     fi
     
-    # Create autoconfig.php for automatic database setup
-    cat > /var/www/html/config/autoconfig.php << AUTOEOF
+    # Only create autoconfig.php if admin credentials are provided
+    # This prevents the infinite retry loop when using setup wizard
+    if [ -n "${NEXTCLOUD_ADMIN_USER}" ] && [ -n "${NEXTCLOUD_ADMIN_PASSWORD}" ]; then
+        echo "✅ Admin credentials provided - creating full autoconfig"
+        # Create autoconfig.php for complete automatic setup
+        cat > /var/www/html/config/autoconfig.php << AUTOEOF
 <?php
 \$AUTOCONFIG = array(
     "dbtype" => "pgsql",
@@ -127,30 +131,42 @@ if [ ! -f "/var/www/html/config/config.php" ]; then
     "dbhost" => "${POSTGRES_HOST}:${POSTGRES_PORT:-5432}",
     "dbtableprefix" => "${NEXTCLOUD_TABLE_PREFIX}",
     "directory" => "${NEXTCLOUD_DATA_DIR}",
+    "adminlogin" => "${NEXTCLOUD_ADMIN_USER}",
+    "adminpass" => "${NEXTCLOUD_ADMIN_PASSWORD}",
     "trusted_domains" => array(
         0 => "localhost",
         1 => "${RAILWAY_PUBLIC_DOMAIN}",
     ),
+);
 AUTOEOF
-
-    # Add admin user configuration if provided
-    if [ -n "${NEXTCLOUD_ADMIN_USER}" ] && [ -n "${NEXTCLOUD_ADMIN_PASSWORD}" ]; then
-        cat >> /var/www/html/config/autoconfig.php << AUTOEOF
-    "adminlogin" => "${NEXTCLOUD_ADMIN_USER}",
-    "adminpass" => "${NEXTCLOUD_ADMIN_PASSWORD}",
+    else
+        echo "✅ No admin credentials - setup wizard will be used"
+        # Create a minimal config.php with just database connection info
+        # This allows the setup wizard to work without autoconfig interference
+        cat > /var/www/html/config/config.php << AUTOEOF
+<?php
+\$CONFIG = array (
+  'dbtype' => 'pgsql',
+  'dbname' => '${POSTGRES_DB}',
+  'dbuser' => '${POSTGRES_USER}',
+  'dbpassword' => '${POSTGRES_PASSWORD}',
+  'dbhost' => '${POSTGRES_HOST}:${POSTGRES_PORT:-5432}',
+  'dbtableprefix' => '${NEXTCLOUD_TABLE_PREFIX}',
+  'datadirectory' => '${NEXTCLOUD_DATA_DIR}',
+  'installed' => false,
+  'trusted_domains' => array(
+    0 => 'localhost',
+    1 => '${RAILWAY_PUBLIC_DOMAIN}',
+  ),
+);
 AUTOEOF
     fi
 
-    # Close the autoconfig array
-    cat >> /var/www/html/config/autoconfig.php << AUTOEOF
-);
-AUTOEOF
-
-    # Set proper ownership and permissions
-    chown www-data:www-data /var/www/html/config/autoconfig.php
-    chmod 640 /var/www/html/config/autoconfig.php
+    # Set proper ownership and permissions for created files
+    chown -R www-data:www-data /var/www/html/config/
+    chmod -R 640 /var/www/html/config/*.php
     
-    echo "✅ Auto-configuration created successfully"
+    echo "✅ Configuration created successfully"
     echo "Database host configured as: ${POSTGRES_HOST}:${POSTGRES_PORT:-5432}"
 else
     echo "✅ NextCloud already configured"
