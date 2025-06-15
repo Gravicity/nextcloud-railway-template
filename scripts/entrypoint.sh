@@ -41,34 +41,40 @@ wait_for_redis() {
 
 # Parse Railway URLs and set individual components
 parse_railway_urls() {
-    # Parse DATABASE_URL if it exists (Railway auto-provides this)
+    # Railway provides these in different formats, let's handle both
+    # Priority: DATABASE_URL > MYSQL_URL > individual variables
     if [ -n "$DATABASE_URL" ]; then
+        echo "📊 Using DATABASE_URL"
         export DB_HOST=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
         export DB_PORT=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
         export DB_USER=$(echo $DATABASE_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
         export DB_PASS=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
         export DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
-        echo "📊 Parsed database connection from DATABASE_URL"
+    elif [ -n "$MYSQL_URL" ]; then
+        echo "📊 Using MYSQL_URL"
+        export DB_HOST=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
+        export DB_PORT=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
+        export DB_USER=$(echo $MYSQL_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
+        export DB_PASS=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
+        export DB_NAME=$(echo $MYSQL_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
     else
-        # Fallback to individual env vars if DATABASE_URL not set
-        export DB_HOST=${MYSQL_HOST:-localhost}
-        export DB_PORT=${MYSQL_PORT:-3306}
-        export DB_USER=${MYSQL_USER:-nextcloud}
-        export DB_PASS=${MYSQL_PASSWORD:-nextcloud}
-        export DB_NAME=${MYSQL_DATABASE:-nextcloud}
-        echo "📊 Using individual database environment variables"
+        echo "📊 Using individual MySQL environment variables"
+        export DB_HOST=${MYSQLHOST:-${MYSQL_HOST:-localhost}}
+        export DB_PORT=${MYSQLPORT:-${MYSQL_PORT:-3306}}
+        export DB_USER=${MYSQLUSER:-${MYSQL_USER:-root}}
+        export DB_PASS=${MYSQLPASSWORD:-${MYSQL_PASSWORD:-}}
+        export DB_NAME=${MYSQLDATABASE:-${MYSQL_DATABASE:-railway}}
     fi
     
-    # Parse REDIS_URL if it exists (Railway auto-provides this)
+    # Priority: REDIS_URL > individual variables
     if [ -n "$REDIS_URL" ]; then
-        export REDIS_HOST=$(echo $REDIS_URL | sed -n 's|redis://\([^:]*\):.*|\1|p')
-        export REDIS_PORT=$(echo $REDIS_URL | sed -n 's|redis://[^:]*:\([0-9]*\).*|\1|p')
-        echo "🔴 Parsed Redis connection from REDIS_URL"
+        echo "🔴 Using REDIS_URL"
+        export REDIS_HOST=$(echo $REDIS_URL | sed -n 's|redis://[^@]*@\?\([^:]*\):.*|\1|p')
+        export REDIS_PORT=$(echo $REDIS_URL | sed -n 's|redis://[^@]*@\?[^:]*:\([0-9]*\).*|\1|p')
     else
-        # Fallback values
-        export REDIS_HOST=${REDIS_HOST:-localhost}
-        export REDIS_PORT=${REDIS_PORT:-6379}
-        echo "🔴 Using fallback Redis settings"
+        echo "🔴 Using individual Redis environment variables"
+        export REDIS_HOST=${REDISHOST:-${REDIS_HOST:-localhost}}
+        export REDIS_PORT=${REDISPORT:-${REDIS_PORT:-6379}}
     fi
     
     # Set NextCloud domain from Railway
@@ -77,6 +83,8 @@ parse_railway_urls() {
     export NC_URL="https://${NC_DOMAIN}"
     
     echo "🌐 NextCloud will be available at: $NC_URL"
+    echo "📊 Database: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+    echo "🔴 Redis: ${REDIS_HOST}:${REDIS_PORT}"
 }
 
 # Create NextCloud configuration
