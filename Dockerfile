@@ -35,8 +35,8 @@ COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy custom entrypoint and maintenance scripts
 COPY scripts/entrypoint.sh /usr/local/bin/custom-entrypoint.sh
-COPY scripts/fix-warnings.sh /usr/local/bin/fix-warnings.sh
-RUN chmod +x /usr/local/bin/custom-entrypoint.sh /usr/local/bin/fix-warnings.sh
+COPY scripts/fix-warnings.sh /usr/local/bin/fix-warnings-DISABLED.sh
+RUN chmod +x /usr/local/bin/custom-entrypoint.sh /usr/local/bin/fix-warnings-DISABLED.sh
 
 # Create necessary directories and set permissions
 RUN mkdir -p /var/log/supervisor && \
@@ -53,3 +53,4 @@ EXPOSE 80
 
 # Use custom entrypoint (handles everything including starting supervisord)
 ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
+CMD ["apache2-foreground"]
