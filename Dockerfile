@@ -7,12 +7,13 @@ RUN apt-get update && apt-get install -y \
     cron \
     supervisor \
     redis-tools \
-    mariadb-client \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Install smbclient PHP extension
+# Install smbclient PHP extension and ensure PostgreSQL support
 RUN pecl install smbclient \
-    && docker-php-ext-enable smbclient
+    && docker-php-ext-enable smbclient \
+    && docker-php-ext-install pgsql pdo_pgsql
 
 # Copy PHP configuration
 COPY config/php.ini /usr/local/etc/php/conf.d/nextcloud.ini
@@ -30,9 +31,10 @@ RUN a2enconf security apache-security && \
 # Copy supervisor configuration
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Copy custom entrypoint
+# Copy custom entrypoint and maintenance scripts
 COPY scripts/entrypoint.sh /usr/local/bin/custom-entrypoint.sh
-RUN chmod +x /usr/local/bin/custom-entrypoint.sh
+COPY scripts/fix-warnings.sh /usr/local/bin/fix-warnings.sh
+RUN chmod +x /usr/local/bin/custom-entrypoint.sh /usr/local/bin/fix-warnings.sh
 
 # Create necessary directories and set permissions
 RUN mkdir -p /var/log/supervisor && \
@@ -44,8 +46,8 @@ RUN mkdir -p /var/log/supervisor && \
     find /var/www/html -type d -exec chmod 755 {} \; && \
     chmod +x /usr/local/bin/custom-entrypoint.sh
 
-# Expose HTTP port (Railway uses PORT env variable)
-EXPOSE 8080
+# Expose HTTP port (Railway expects PORT=80)
+EXPOSE 80
 
 # Use custom entrypoint (handles everything including starting supervisord)
 ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]
