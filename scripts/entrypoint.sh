@@ -7,8 +7,8 @@ echo "🚀 Starting NextCloud Railway deployment..."
 echo "🔍 Debug: Environment variables:"
 env | grep -E "^(POSTGRES|REDIS|RAILWAY)" | sort
 
-# Check for environment variables and provide fallbacks
-if [ -z "$POSTGRES_HOST" ] && [ -z "$DATABASE_URL" ]; then
+# Check for environment variables - we need at least some PostgreSQL config
+if [ -z "$POSTGRES_HOST" ] && [ -z "$DATABASE_URL" ] && [ -z "$POSTGRES_USER" ]; then
     echo "❌ No PostgreSQL configuration found!"
     echo "Set either individual POSTGRES_* variables or DATABASE_URL"
     echo "Available environment variables:"
@@ -26,11 +26,15 @@ if [ -n "$DATABASE_URL" ] && [ -z "$POSTGRES_HOST" ]; then
     export POSTGRES_DB=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
 fi
 
-# Set defaults if still missing
+# Set defaults if still missing (but keep existing values)
+export POSTGRES_HOST=${POSTGRES_HOST:-$PGHOST}
 export POSTGRES_HOST=${POSTGRES_HOST:-localhost}
+export POSTGRES_PORT=${POSTGRES_PORT:-$PGPORT}
 export POSTGRES_PORT=${POSTGRES_PORT:-5432}
+export POSTGRES_USER=${POSTGRES_USER:-$PGUSER}
 export POSTGRES_USER=${POSTGRES_USER:-postgres}
-export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-$PGPASSWORD}
+export POSTGRES_DB=${POSTGRES_DB:-$PGDATABASE}
 export POSTGRES_DB=${POSTGRES_DB:-nextcloud}
 
 # Configure Apache for Railway's PORT
