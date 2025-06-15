@@ -32,24 +32,26 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    REDIS_PORT=${{Redis.REDIS_PORT}}
    REDIS_PASSWORD=${{Redis.REDIS_PASSWORD}}
    
-   # NextCloud Configuration
+   # NextCloud Configuration (Required)
    NEXTCLOUD_TRUSTED_DOMAINS=${{RAILWAY_PUBLIC_DOMAIN}} localhost
-   NEXTCLOUD_ADMIN_USER=admin
-   NEXTCLOUD_ADMIN_PASSWORD=secure_password_here
+   
+   # NextCloud Admin (Only set these for automatic setup)
+   # NEXTCLOUD_ADMIN_USER=admin
+   # NEXTCLOUD_ADMIN_PASSWORD=secure_password_here
    
    # Optional NextCloud Settings
-   NEXTCLOUD_DATA_DIR=/var/www/html/data
-   NEXTCLOUD_TABLE_PREFIX=oc_
-   NEXTCLOUD_UPDATE_CHECKER=false
+   # NEXTCLOUD_DATA_DIR=/var/www/html/data
+   # NEXTCLOUD_TABLE_PREFIX=oc_
+   # NEXTCLOUD_UPDATE_CHECKER=false
    
    # Optional Performance Settings
-   PHP_MEMORY_LIMIT=512M
-   PHP_UPLOAD_LIMIT=2G
+   # PHP_MEMORY_LIMIT=512M
+   # PHP_UPLOAD_LIMIT=2G
    ```
    
    > **Setup Options:**
-   > - **Manual Setup**: Leave `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` empty to use the web setup wizard
-   > - **Automatic Setup**: Set both `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` for complete automation
+   > - **Manual Setup** (Recommended): Don't set `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` variables at all - use the web setup wizard
+   > - **Automatic Setup**: Uncomment and set both `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` for complete automation
    > 
    > **Important:** Database and Redis connections are pre-configured automatically in both cases.
    
@@ -121,7 +123,7 @@ Generate secrets: `openssl rand -hex 32`
 ### NextCloud Admin (Optional - for automatic setup):
 - `NEXTCLOUD_ADMIN_USER` - Admin username for automatic setup
 - `NEXTCLOUD_ADMIN_PASSWORD` - Admin password for automatic setup
-- **Leave both empty to use the web setup wizard instead**
+- **Don't set these variables at all to use the web setup wizard instead**
 
 ### NextCloud Optional Settings:
 - `NEXTCLOUD_DATA_DIR` - Data directory path (default: `/var/www/html/data`)
