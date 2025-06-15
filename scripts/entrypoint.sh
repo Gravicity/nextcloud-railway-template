@@ -93,41 +93,17 @@ echo "  PHP Upload Limit: ${PHP_UPLOAD_LIMIT}"
 # Wait for NextCloud entrypoint to initialize first
 echo "🌟 Starting NextCloud with original entrypoint..."
 
-# Create a hook script that runs after NextCloud initialization
-mkdir -p /docker-entrypoint-hooks.d/before-starting
-
-cat > /docker-entrypoint-hooks.d/before-starting/01-setup-autoconfig.sh << 'EOF'
+# Set up autoconfig.php if admin credentials are provided
+if [ -n "${NEXTCLOUD_ADMIN_USER:-}" ] && [ "${NEXTCLOUD_ADMIN_USER}" != "" ] && [ -n "${NEXTCLOUD_ADMIN_PASSWORD:-}" ] && [ "${NEXTCLOUD_ADMIN_PASSWORD}" != "" ]; then
+    echo "✅ Admin credentials provided - will create autoconfig.php"
+    # Create hook for autoconfig setup
+    mkdir -p /docker-entrypoint-hooks.d/before-starting
+    
+    cat > /docker-entrypoint-hooks.d/before-starting/01-autoconfig.sh << 'EOF'
 #!/bin/bash
-echo "🔧 Setting up database auto-configuration..."
-
-# Debug: Show what we're working with
-echo "Hook script environment:"
-echo "  Database: ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
-echo "  Redis: ${REDISHOST}:${REDISPORT}"
-echo "  Admin user: ${NEXTCLOUD_ADMIN_USER:-'(setup wizard)'}"
-echo "  Data dir: ${NEXTCLOUD_DATA_DIR}"
-echo "  Table prefix: ${NEXTCLOUD_TABLE_PREFIX}"
-
-# Only create autoconfig if NextCloud isn't already installed
-if [ ! -f "/var/www/html/config/config.php" ]; then
-    mkdir -p /var/www/html/config
-    
-    # Test database connection first
-    echo "🔍 Testing database connection..."
-    if command -v pg_isready >/dev/null 2>&1; then
-        if pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER}"; then
-            echo "✅ Database connection test passed"
-        else
-            echo "⚠️ Database connection test failed - but continuing anyway"
-        fi
-    fi
-    
-    # Only create autoconfig.php if admin credentials are provided and not empty
-    # This prevents the infinite retry loop when using setup wizard
-    if [ -n "${NEXTCLOUD_ADMIN_USER:-}" ] && [ "${NEXTCLOUD_ADMIN_USER}" != "" ] && [ -n "${NEXTCLOUD_ADMIN_PASSWORD:-}" ] && [ "${NEXTCLOUD_ADMIN_PASSWORD}" != "" ]; then
-        echo "✅ Admin credentials provided - creating full autoconfig"
-        # Create autoconfig.php for complete automatic setup
-        cat > /var/www/html/config/autoconfig.php << AUTOEOF
+echo "🔧 Creating autoconfig.php for automatic setup..."
+mkdir -p /var/www/html/config
+cat > /var/www/html/config/autoconfig.php << AUTOEOF
 <?php
 \$AUTOCONFIG = array(
     "dbtype" => "pgsql",
@@ -145,27 +121,15 @@ if [ ! -f "/var/www/html/config/config.php" ]; then
     ),
 );
 AUTOEOF
-        # Set proper ownership and permissions for autoconfig
-        chown www-data:www-data /var/www/html/config/autoconfig.php
-        chmod 640 /var/www/html/config/autoconfig.php
-    else
-        echo "✅ No admin credentials - setup wizard will be used"
-        echo "✅ Not creating any config files - NextCloud will show setup wizard"
-        # Don't create any config files - let NextCloud handle setup wizard completely
-        # Just ensure the config directory exists with proper permissions
-        mkdir -p /var/www/html/config
-        chown www-data:www-data /var/www/html/config
-        chmod 750 /var/www/html/config
-    fi
-    
-    echo "✅ Configuration created successfully"
-    echo "Database host configured as: ${POSTGRES_HOST}:${POSTGRES_PORT:-5432}"
-else
-    echo "✅ NextCloud already configured"
-fi
+chown www-data:www-data /var/www/html/config/autoconfig.php
+chmod 640 /var/www/html/config/autoconfig.php
+echo "✅ Autoconfig.php created for automatic installation"
 EOF
-
-chmod +x /docker-entrypoint-hooks.d/before-starting/01-setup-autoconfig.sh
+    chmod +x /docker-entrypoint-hooks.d/before-starting/01-autoconfig.sh
+else
+    echo "✅ No admin credentials - NextCloud setup wizard will be used"
+    echo "✅ Skipping autoconfig.php creation"
+fi
 
 # Forward to original NextCloud entrypoint
 echo "🐛 DEBUG: About to exec original NextCloud entrypoint"
