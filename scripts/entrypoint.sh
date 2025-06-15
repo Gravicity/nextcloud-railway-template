@@ -3,12 +3,35 @@ set -e
 
 echo "🚀 Starting NextCloud Railway deployment..."
 
-# Verify we have required environment variables
-if [ -z "$POSTGRES_HOST" ] || [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_PASSWORD" ] || [ -z "$POSTGRES_DB" ]; then
-    echo "❌ Missing required PostgreSQL environment variables!"
-    echo "Required: POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB"
+# Debug: Print all environment variables starting with POSTGRES or REDIS
+echo "🔍 Debug: Environment variables:"
+env | grep -E "^(POSTGRES|REDIS|RAILWAY)" | sort
+
+# Check for environment variables and provide fallbacks
+if [ -z "$POSTGRES_HOST" ] && [ -z "$DATABASE_URL" ]; then
+    echo "❌ No PostgreSQL configuration found!"
+    echo "Set either individual POSTGRES_* variables or DATABASE_URL"
+    echo "Available environment variables:"
+    env | grep -E "^(PG|POSTGRES|DATABASE)" | sort
     exit 1
 fi
+
+# If DATABASE_URL is provided, parse it
+if [ -n "$DATABASE_URL" ] && [ -z "$POSTGRES_HOST" ]; then
+    echo "📊 Parsing DATABASE_URL..."
+    export POSTGRES_HOST=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
+    export POSTGRES_PORT=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
+    export POSTGRES_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+    export POSTGRES_PASSWORD=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+    export POSTGRES_DB=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+fi
+
+# Set defaults if still missing
+export POSTGRES_HOST=${POSTGRES_HOST:-localhost}
+export POSTGRES_PORT=${POSTGRES_PORT:-5432}
+export POSTGRES_USER=${POSTGRES_USER:-postgres}
+export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-}
+export POSTGRES_DB=${POSTGRES_DB:-nextcloud}
 
 # Configure Apache for Railway's PORT
 export PORT=${PORT:-80}
