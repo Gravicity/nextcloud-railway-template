@@ -3,160 +3,115 @@ set -e
 
 echo "🚀 Starting NextCloud Railway deployment..."
 
-# Function to wait for database
-wait_for_db() {
-    if [ -n "$DATABASE_URL" ] || [ -n "$MYSQL_URL" ] || [ -n "$DB_HOST" ]; then
-        echo "⏳ Waiting for database to be ready..."
-        local max_attempts=30
-        local attempt=0
-        
-        while [ $attempt -lt $max_attempts ]; do
-            if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
-                echo "✅ Database is ready!"
-                return 0
-            fi
-            echo "⏳ Database not ready, waiting... (attempt $((attempt + 1))/$max_attempts)"
-            sleep 5
-            attempt=$((attempt + 1))
-        done
-        
-        echo "❌ Database connection failed after $max_attempts attempts"
-        echo "🔍 Debug info:"
-        echo "   DB_HOST: $DB_HOST"
-        echo "   DB_PORT: $DB_PORT"
-        echo "   DB_USER: $DB_USER"
-        echo "   DB_NAME: $DB_NAME"
-        return 1
-    else
-        echo "⚠️ No database configuration found - proceeding anyway"
-        return 0
-    fi
-}
+# Parse Railway environment variables
+if [ -n "$DATABASE_URL" ]; then
+    echo "📊 Using DATABASE_URL"
+    export DB_HOST=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
+    export DB_PORT=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
+    export DB_USER=$(echo $DATABASE_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
+    export DB_PASS=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
+    export DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+elif [ -n "$MYSQL_URL" ]; then
+    echo "📊 Using MYSQL_URL"
+    export DB_HOST=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
+    export DB_PORT=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
+    export DB_USER=$(echo $MYSQL_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
+    export DB_PASS=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
+    export DB_NAME=$(echo $MYSQL_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+else
+    export DB_HOST=${MYSQLHOST:-localhost}
+    export DB_PORT=${MYSQLPORT:-3306}
+    export DB_USER=${MYSQLUSER:-root}
+    export DB_PASS=${MYSQLPASSWORD:-}
+    export DB_NAME=${MYSQLDATABASE:-railway}
+    echo "📊 Using individual MySQL environment variables"
+fi
 
-# Function to wait for Redis
-wait_for_redis() {
-    if [ -n "$REDIS_URL" ] || [ -n "$REDIS_HOST" ]; then
-        echo "⏳ Waiting for Redis to be ready..."
-        local max_attempts=30
-        local attempt=0
-        
-        while [ $attempt -lt $max_attempts ]; do
-            if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping > /dev/null 2>&1; then
-                echo "✅ Redis is ready!"
-                return 0
-            fi
-            echo "⏳ Redis not ready, waiting... (attempt $((attempt + 1))/$max_attempts)"
-            sleep 5
-            attempt=$((attempt + 1))
-        done
-        
-        echo "❌ Redis connection failed after $max_attempts attempts"
-        echo "🔍 Debug info:"
-        echo "   REDIS_HOST: $REDIS_HOST"
-        echo "   REDIS_PORT: $REDIS_PORT"
-        return 1
-    else
-        echo "⚠️ No Redis configuration found - proceeding anyway"
-        return 0
-    fi
-}
+if [ -n "$REDIS_URL" ]; then
+    echo "🔴 Using REDIS_URL"
+    export REDIS_HOST=$(echo $REDIS_URL | sed -n 's|redis://[^@]*@\?\([^:]*\):.*|\1|p')
+    export REDIS_PORT=$(echo $REDIS_URL | sed -n 's|redis://[^@]*@\?[^:]*:\([0-9]*\).*|\1|p')
+else
+    export REDIS_HOST=${REDISHOST:-localhost}
+    export REDIS_PORT=${REDISPORT:-6379}
+    echo "🔴 Using individual Redis environment variables"
+fi
 
-# Parse Railway URLs and set individual components
-parse_railway_urls() {
-    # Railway provides these in different formats, let's handle both
-    # Priority: DATABASE_URL > MYSQL_URL > individual variables
-    if [ -n "$DATABASE_URL" ]; then
-        echo "📊 Using DATABASE_URL"
-        export DB_HOST=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
-        export DB_PORT=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
-        export DB_USER=$(echo $DATABASE_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
-        export DB_PASS=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
-        export DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
-    elif [ -n "$MYSQL_URL" ]; then
-        echo "📊 Using MYSQL_URL"
-        export DB_HOST=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
-        export DB_PORT=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
-        export DB_USER=$(echo $MYSQL_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
-        export DB_PASS=$(echo $MYSQL_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
-        export DB_NAME=$(echo $MYSQL_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
-    else
-        echo "📊 Using individual MySQL environment variables"
-        export DB_HOST=${MYSQLHOST:-${MYSQL_HOST:-localhost}}
-        export DB_PORT=${MYSQLPORT:-${MYSQL_PORT:-3306}}
-        export DB_USER=${MYSQLUSER:-${MYSQL_USER:-root}}
-        export DB_PASS=${MYSQLPASSWORD:-${MYSQL_PASSWORD:-}}
-        export DB_NAME=${MYSQLDATABASE:-${MYSQL_DATABASE:-railway}}
-    fi
-    
-    # Priority: REDIS_URL > individual variables
-    if [ -n "$REDIS_URL" ]; then
-        echo "🔴 Using REDIS_URL"
-        export REDIS_HOST=$(echo $REDIS_URL | sed -n 's|redis://[^@]*@\?\([^:]*\):.*|\1|p')
-        export REDIS_PORT=$(echo $REDIS_URL | sed -n 's|redis://[^@]*@\?[^:]*:\([0-9]*\).*|\1|p')
-    else
-        echo "🔴 Using individual Redis environment variables"
-        export REDIS_HOST=${REDISHOST:-${REDIS_HOST:-localhost}}
-        export REDIS_PORT=${REDISPORT:-${REDIS_PORT:-6379}}
-    fi
-    
-    # Set NextCloud domain from Railway
-    export NC_DOMAIN=${RAILWAY_PUBLIC_DOMAIN:-localhost}
-    export NC_PROTOCOL="https"
-    export NC_URL="https://${NC_DOMAIN}"
-    
-    echo "🌐 NextCloud will be available at: $NC_URL"
-    echo "📊 Database: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
-    echo "🔴 Redis: ${REDIS_HOST}:${REDIS_PORT}"
-}
+# Set Railway domain
+export NC_DOMAIN=${RAILWAY_PUBLIC_DOMAIN:-localhost}
+export RAILWAY_PORT=${PORT:-80}
 
-# Verify NextCloud files are accessible
-verify_nextcloud_files() {
-    echo "🔍 Verifying NextCloud files..."
+echo "🌐 NextCloud will be available at: https://${NC_DOMAIN}"
+echo "📊 Database: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+echo "🔴 Redis: ${REDIS_HOST}:${REDIS_PORT}"
+echo "🚢 Railway Port: ${RAILWAY_PORT}"
+
+# Configure Apache for Railway's PORT
+echo "🌐 Configuring Apache for Railway..."
+echo "Listen ${RAILWAY_PORT}" > /etc/apache2/ports.conf
+
+# Create proper Apache virtual host configuration
+cat > /etc/apache2/sites-available/000-default.conf << EOF
+<VirtualHost *:${RAILWAY_PORT}>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
     
-    # Check if index.php exists
-    if [ -f "/var/www/html/index.php" ]; then
-        echo "✅ NextCloud index.php found"
-    else
-        echo "❌ NextCloud index.php missing! Checking file structure..."
-        ls -la /var/www/html/
-        
-        # Try to fix by ensuring proper ownership
-        chown -R www-data:www-data /var/www/html/
-        chmod -R 755 /var/www/html/
-        
-        if [ -f "/var/www/html/index.php" ]; then
-            echo "✅ Fixed: NextCloud index.php now accessible"
-        else
-            echo "❌ Critical: NextCloud files missing - container may need rebuild"
+    DirectoryIndex index.php index.html
+    
+    <Directory /var/www/html>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
+
+echo "✅ Apache configured for port: ${RAILWAY_PORT}"
+
+# Verify NextCloud files
+if [ -f "/var/www/html/index.php" ]; then
+    echo "✅ NextCloud files found"
+else
+    echo "❌ NextCloud files missing!"
+    ls -la /var/www/html/
+fi
+
+# Wait for database if needed
+if [ -n "$DB_HOST" ] && [ "$DB_HOST" != "localhost" ]; then
+    echo "⏳ Waiting for database..."
+    for i in {1..30}; do
+        if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
+            echo "✅ Database ready!"
+            break
         fi
-    fi
-    
-    # Check permissions
-    local index_perms=$(stat -c "%a" /var/www/html/index.php 2>/dev/null || echo "missing")
-    echo "📁 index.php permissions: $index_perms"
-    echo "📁 /var/www/html owner: $(stat -c "%U:%G" /var/www/html/)"
-}
-create_nextcloud_config() {
-    echo "🔧 Creating NextCloud configuration..."
-    
-    # Debug output
-    echo "🔍 Configuration variables:"
-    echo "   DB_HOST: ${DB_HOST}"
-    echo "   DB_PORT: ${DB_PORT}"
-    echo "   DB_USER: ${DB_USER}"
-    echo "   DB_NAME: ${DB_NAME}"
-    echo "   REDIS_HOST: ${REDIS_HOST}"
-    echo "   REDIS_PORT: ${REDIS_PORT}"
-    echo "   NC_DOMAIN: ${NC_DOMAIN}"
-    
-    # Ensure config directory exists
-    mkdir -p /var/www/html/config
-    
-    # Create the config file with Railway-compatible settings
-    cat > /var/www/html/config/config.php << EOF
+        echo "⏳ Database not ready, attempt $i/30..."
+        sleep 2
+    done
+fi
+
+# Wait for Redis if needed
+if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "localhost" ]; then
+    echo "⏳ Waiting for Redis..."
+    for i in {1..30}; do
+        if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping > /dev/null 2>&1; then
+            echo "✅ Redis ready!"
+            break
+        fi
+        echo "⏳ Redis not ready, attempt $i/30..."
+        sleep 2
+    done
+fi
+
+# Create NextCloud configuration
+echo "🔧 Creating NextCloud configuration..."
+mkdir -p /var/www/html/config
+
+cat > /var/www/html/config/config.php << EOF
 <?php
 \$CONFIG = array(
-  // Database configuration (from Railway DATABASE_URL)
   'dbtype' => 'mysql',
   'dbname' => '${DB_NAME}',
   'dbhost' => '${DB_HOST}',
@@ -166,7 +121,6 @@ create_nextcloud_config() {
   'dbuser' => '${DB_USER}',
   'dbpassword' => '${DB_PASS}',
 
-  // Redis configuration (from Railway REDIS_URL)
   'memcache.local' => '\\\\OC\\\\Memcache\\\\APCu',
   'memcache.distributed' => '\\\\OC\\\\Memcache\\\\Redis',
   'memcache.locking' => '\\\\OC\\\\Memcache\\\\Redis',
@@ -176,51 +130,40 @@ create_nextcloud_config() {
     'timeout' => 0.0,
   ),
 
-  // Railway proxy and domain settings
   'trusted_domains' => array(
     0 => '${NC_DOMAIN}',
     1 => 'localhost',
   ),
-  'overwriteprotocol' => '${NC_PROTOCOL}',
+  'overwriteprotocol' => 'https',
   'overwritehost' => '${NC_DOMAIN}',
-  'overwritecliurl' => '${NC_URL}',
+  'overwritecliurl' => 'https://${NC_DOMAIN}',
   
-  // Railway uses proxies, so trust Railway's network
   'trusted_proxies' => array('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'),
   'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
 
-  // Performance settings (fixes performance warnings)
   'enable_previews' => true,
   'preview_max_x' => 1024,
   'preview_max_y' => 768,
   'filesystem_check_changes' => 0,
-  'part_file_in_storage' => false,
 
-  // Security settings (fixes security warnings)
   'default_phone_region' => 'US',
   'auth.bruteforce.protection.enabled' => true,
   'maintenance_window_start' => 2,
   'upgrade.disable-web' => true,
 
-  // Logging
   'log_type' => 'file',
   'logfile' => '/var/www/html/data/nextcloud.log',
   'loglevel' => 2,
-  'logdateformat' => 'F d, Y H:i:s',
 
-  // Session settings
   'session_lifetime' => 60 * 60 * 24,
   'session_keepalive' => true,
 
-  // App settings
   'default_locale' => 'en',
   'default_language' => 'en',
   'defaultapp' => 'files',
 
-  // Data directory
   'datadirectory' => '/var/www/html/data',
 
-  // App directories
   'apps_paths' => array(
     array(
       'path' => '/var/www/html/apps',
@@ -234,192 +177,6 @@ create_nextcloud_config() {
     ),
   ),
 
-  // Skip some checks that don't work well in Railway/containers
   'check_for_working_wellknown_setup' => false,
   'check_for_working_htaccess' => false,
-  'updatechecker' => false,
-  
-  // Installation flag (will be set to true after setup)
-  'installed' => false,
-);
-EOF
-
-    chown www-data:www-data /var/www/html/config/config.php
-    chmod 640 /var/www/html/config/config.php
-    echo "✅ NextCloud configuration created!"
-}
-
-# Set up cron for NextCloud background jobs
-setup_cron() {
-    echo "⏰ Setting up NextCloud cron jobs..."
-    
-    # Create cron job for NextCloud (every 5 minutes)
-    echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
-    
-    echo "✅ Cron jobs configured!"
-}
-
-# Configure Apache for Railway's PORT environment variable
-configure_apache_port() {
-    local railway_port=${PORT:-80}
-    echo "🌐 Configuring Apache to listen on port: $railway_port"
-    
-    # Update Apache port configuration
-    echo "Listen $railway_port" > /etc/apache2/ports.conf
-    
-    # Update default site to use the Railway port and ensure proper DocumentRoot
-    cat > /etc/apache2/sites-available/000-default.conf << EOF
-<VirtualHost *:$railway_port>
-    ServerAdmin webmaster@localhost
-    DocumentRoot /var/www/html
-    
-    # Enable index.php as DirectoryIndex
-    DirectoryIndex index.php index.html
-    
-    # NextCloud directory configuration
-    <Directory /var/www/html>
-        Options -Indexes +FollowSymLinks
-        AllowOverride All
-        Require all granted
-        
-        # Enable PHP processing
-        <IfModule mod_php8.c>
-            php_admin_flag engine on
-        </IfModule>
-    </Directory>
-    
-    # Error and access logs
-    ErrorLog \${APACHE_LOG_DIR}/error.log
-    CustomLog \${APACHE_LOG_DIR}/access.log combined
-    
-    # Security headers (additional to our security.conf)
-    Header always set X-Frame-Options "SAMEORIGIN"
-    Header always set X-Content-Type-Options "nosniff"
-</VirtualHost>
-EOF
-    
-    # Ensure PHP module is enabled
-    a2enmod php8.3 2>/dev/null || a2enmod php 2>/dev/null || echo "PHP module already enabled"
-    
-    # Test PHP functionality
-    if php -v > /dev/null 2>&1; then
-        echo "✅ PHP is working: $(php -r 'echo PHP_VERSION;')"
-    else
-        echo "❌ PHP not working - this will cause issues!"
-    fi
-    
-    echo "✅ Apache configured for Railway port: $railway_port"
-}
-setup_cron() {
-    echo "⏰ Setting up NextCloud cron jobs..."
-    
-    # Create cron job for NextCloud (every 5 minutes)
-    echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
-    
-    echo "✅ Cron jobs configured!"
-}
-
-# Post-installation optimizations (run after NextCloud setup completes)
-optimize_after_install() {
-    echo "🔧 Starting post-installation optimizations..."
-    
-    # Wait for NextCloud to be fully installed
-    local max_attempts=60  # 10 minutes max
-    local attempt=0
-    
-    while [ $attempt -lt $max_attempts ]; do
-        if [ -f /var/www/html/config/config.php ] && grep -q "installed.*true" /var/www/html/config/config.php 2>/dev/null; then
-            echo "✅ NextCloud installation detected!"
-            break
-        fi
-        echo "⏳ Waiting for NextCloud installation... (attempt $((attempt + 1))/$max_attempts)"
-        sleep 10
-        attempt=$((attempt + 1))
-    done
-    
-    if [ $attempt -eq $max_attempts ]; then
-        echo "⚠️ Timeout waiting for NextCloud installation"
-        return 1
-    fi
-    
-    # Install and enable Talk app
-    echo "📞 Installing NextCloud Talk app..."
-    sudo -u www-data php /var/www/html/occ app:install spreed --no-interaction || echo "Talk app installation failed or already installed"
-    sudo -u www-data php /var/www/html/occ app:enable spreed --no-interaction || echo "Talk app enable failed"
-    
-    # Add missing database indices (fixes performance warnings)
-    echo "📊 Adding missing database indices..."
-    sudo -u www-data php /var/www/html/occ db:add-missing-indices --no-interaction || echo "Adding indices failed"
-    
-    # Add missing primary keys (fixes security warnings)
-    echo "🔑 Adding missing primary keys..."
-    sudo -u www-data php /var/www/html/occ db:add-missing-primary-keys --no-interaction || echo "Adding primary keys failed"
-    
-    # Convert to big int (fixes compatibility warnings)
-    echo "🔢 Converting file cache to big int..."
-    sudo -u www-data php /var/www/html/occ db:convert-filecache-bigint --no-interaction || echo "Big int conversion failed"
-    
-    # Set background job mode to cron (fixes cron warning)
-    echo "⚙️ Setting background job mode to cron..."
-    sudo -u www-data php /var/www/html/occ background:cron --no-interaction || echo "Setting background job failed"
-    
-    # Configure Talk HPB if secrets are provided
-    if [ -n "$SIGNALING_SECRET" ] && [ -n "$NC_DOMAIN" ]; then
-        echo "📞 Configuring Talk High-Performance Backend..."
-        # Note: This assumes HPB is deployed separately with a subdomain
-        local hpb_url="https://hpb-${NC_DOMAIN}"
-        if [ -n "$HPB_URL" ]; then
-            hpb_url="$HPB_URL"
-        fi
-        
-        sudo -u www-data php /var/www/html/occ config:app:set spreed signaling_servers --value="[{\"server\":\"${hpb_url}\",\"verify\":true}]" --no-interaction || echo "HPB server config failed"
-        sudo -u www-data php /var/www/html/occ config:app:set spreed signaling_secret --value="$SIGNALING_SECRET" --no-interaction || echo "HPB secret config failed"
-        echo "✅ Talk HPB configured for: $hpb_url"
-    else
-        echo "⚠️ SIGNALING_SECRET not set - Talk HPB not configured"
-    fi
-    
-    echo "✅ Post-installation optimizations complete!"
-}
-
-# Debug function to show what environment variables are available
-debug_environment() {
-    echo "🔍 Environment Debugging:"
-    echo "  PORT: ${PORT:-not set}"
-    echo "  RAILWAY_PUBLIC_DOMAIN: ${RAILWAY_PUBLIC_DOMAIN:-not set}"
-    echo "  DATABASE_URL: ${DATABASE_URL:+[SET]} ${DATABASE_URL:-[NOT SET]}"
-    echo "  REDIS_URL: ${REDIS_URL:+[SET]} ${REDIS_URL:-[NOT SET]}"
-    echo "  MYSQL_URL: ${MYSQL_URL:+[SET]} ${MYSQL_URL:-[NOT SET]}"
-    echo "  Individual MySQL vars:"
-    echo "    MYSQLHOST: ${MYSQLHOST:-not set}"
-    echo "    MYSQLPORT: ${MYSQLPORT:-not set}"
-    echo "    MYSQLUSER: ${MYSQLUSER:-not set}"
-    echo "    MYSQLDATABASE: ${MYSQLDATABASE:-not set}"
-    echo "  Individual Redis vars:"
-    echo "    REDISHOST: ${REDISHOST:-not set}"
-    echo "    REDISPORT: ${REDISPORT:-not set}"
-}
-echo "🚀 Starting NextCloud Railway setup..."
-
-# Parse Railway environment variables
-parse_railway_urls
-
-# Configure Apache for Railway's port
-configure_apache_port
-
-# Wait for required services
-wait_for_db
-wait_for_redis
-
-# Create NextCloud configuration
-create_nextcloud_config
-
-# Set up cron jobs
-setup_cron
-
-# Start background optimization (runs after NextCloud setup)
-(sleep 60 && optimize_after_install) &
-
-# Start supervisord to manage all processes
-echo "🌟 Starting NextCloud with supervisor..."
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+  'update
