@@ -22,6 +22,7 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    ```
    # Database Configuration (required for auto-setup)
    POSTGRES_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
+   POSTGRES_PORT=${{Postgres.PGPORT}}
    POSTGRES_USER=${{Postgres.PGUSER}}
    POSTGRES_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
    POSTGRES_DB=${{Postgres.POSTGRES_DB}}
