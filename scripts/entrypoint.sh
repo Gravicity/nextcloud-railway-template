@@ -105,11 +105,13 @@ if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "localhost" ]; then
     done
 fi
 
-# Create NextCloud configuration
-echo "🔧 Creating NextCloud configuration..."
-mkdir -p /var/www/html/config
+# Create initial NextCloud configuration (only if no config exists)
+create_initial_config() {
+    if [ ! -f "/var/www/html/config/config.php" ]; then
+        echo "🔧 Creating initial NextCloud configuration..."
+        mkdir -p /var/www/html/config
 
-cat > /var/www/html/config/config.php << EOF
+        cat > /var/www/html/config/config.php << EOF
 <?php
 \$CONFIG = array(
   'dbtype' => 'mysql',
@@ -121,15 +123,6 @@ cat > /var/www/html/config/config.php << EOF
   'dbuser' => '${DB_USER}',
   'dbpassword' => '${DB_PASS}',
 
-  'memcache.local' => '\\\\OC\\\\Memcache\\\\APCu',
-  'memcache.distributed' => '\\\\OC\\\\Memcache\\\\Redis',
-  'memcache.locking' => '\\\\OC\\\\Memcache\\\\Redis',
-  'redis' => array(
-    'host' => '${REDIS_HOST}',
-    'port' => ${REDIS_PORT},
-    'timeout' => 0.0,
-  ),
-
   'trusted_domains' => array(
     0 => '${NC_DOMAIN}',
     1 => 'localhost',
@@ -138,56 +131,86 @@ cat > /var/www/html/config/config.php << EOF
   'overwritehost' => '${NC_DOMAIN}',
   'overwritecliurl' => 'https://${NC_DOMAIN}',
   
-  'trusted_proxies' => array('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'),
-  'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
-
-  'enable_previews' => true,
-  'preview_max_x' => 1024,
-  'preview_max_y' => 768,
-  'filesystem_check_changes' => 0,
-
-  'default_phone_region' => 'US',
-  'auth.bruteforce.protection.enabled' => true,
-  'maintenance_window_start' => 2,
-  'upgrade.disable-web' => true,
-
-  'log_type' => 'file',
-  'logfile' => '/var/www/html/data/nextcloud.log',
-  'loglevel' => 2,
-
-  'session_lifetime' => 60 * 60 * 24,
-  'session_keepalive' => true,
-
-  'default_locale' => 'en',
-  'default_language' => 'en',
-  'defaultapp' => 'files',
-
   'datadirectory' => '/var/www/html/data',
-
-  'apps_paths' => array(
-    array(
-      'path' => '/var/www/html/apps',
-      'url' => '/apps',
-      'writable' => false,
-    ),
-    array(
-      'path' => '/var/www/html/custom_apps',
-      'url' => '/custom_apps',
-      'writable' => true,
-    ),
-  ),
-
-  'check_for_working_wellknown_setup' => false,
-  'check_for_working_htaccess' => false,
-  'updatechecker' => false,
-  
   'installed' => false,
 );
 EOF
 
-chown www-data:www-data /var/www/html/config/config.php
-chmod 640 /var/www/html/config/config.php
-echo "✅ NextCloud configuration created!"
+        chown www-data:www-data /var/www/html/config/config.php
+        chmod 640 /var/www/html/config/config.php
+        echo "✅ Initial NextCloud configuration created!"
+    else
+        echo "ℹ️ NextCloud config already exists, skipping initial creation"
+    fi
+}
+
+# Enhance existing NextCloud configuration with our optimizations
+enhance_nextcloud_config() {
+    if [ -f "/var/www/html/config/config.php" ]; then
+        echo "🔧 Enhancing NextCloud configuration with optimizations..."
+        
+        # Backup original config
+        cp /var/www/html/config/config.php /var/www/html/config/config.php.backup
+        
+        # Use PHP to merge our enhancements into existing config
+        php << 'EOPHP'
+<?php
+$configFile = '/var/www/html/config/config.php';
+if (file_exists($configFile)) {
+    include $configFile;
+    
+    // Merge our optimizations
+    $CONFIG = array_merge($CONFIG, array(
+        // Redis configuration
+        'memcache.local' => '\\OC\\Memcache\\APCu',
+        'memcache.distributed' => '\\OC\\Memcache\\Redis',
+        'memcache.locking' => '\\OC\\Memcache\\Redis',
+        'redis' => array(
+            'host' => getenv('REDIS_HOST') ?: 'localhost',
+            'port' => intval(getenv('REDIS_PORT') ?: 6379),
+            'timeout' => 0.0,
+        ),
+
+        // Railway proxy settings
+        'trusted_proxies' => array('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'),
+        'forwarded_for_headers' => array('HTTP_X_FORWARDED_FOR'),
+        'overwriteprotocol' => 'https',
+        'overwritehost' => getenv('NC_DOMAIN') ?: 'localhost',
+        'overwritecliurl' => 'https://' . (getenv('NC_DOMAIN') ?: 'localhost'),
+
+        // Performance optimizations
+        'enable_previews' => true,
+        'preview_max_x' => 1024,
+        'preview_max_y' => 768,
+        'filesystem_check_changes' => 0,
+
+        // Security optimizations
+        'default_phone_region' => 'US',
+        'auth.bruteforce.protection.enabled' => true,
+        'maintenance_window_start' => 2,
+        'upgrade.disable-web' => true,
+
+        // Skip container-incompatible checks
+        'check_for_working_wellknown_setup' => false,
+        'check_for_working_htaccess' => false,
+        'updatechecker' => false,
+    ));
+    
+    // Write enhanced config
+    $output = "<?php\n\$CONFIG = " . var_export($CONFIG, true) . ";\n";
+    file_put_contents($configFile, $output);
+    echo "✅ NextCloud configuration enhanced with optimizations!\n";
+} else {
+    echo "❌ Config file not found for enhancement\n";
+}
+EOPHP
+
+        chown www-data:www-data /var/www/html/config/config.php
+        chmod 640 /var/www/html/config/config.php
+    else
+        echo "⚠️ No existing config found to enhance"
+    fi
+}
 
 # Set up cron jobs
 echo "⏰ Setting up NextCloud cron jobs..."
@@ -197,24 +220,52 @@ echo "✅ Cron jobs configured!"
 # If NextCloud files are missing, run the original entrypoint first
 if [ ! -f "/var/www/html/index.php" ]; then
     echo "🔄 NextCloud files missing - running original entrypoint to initialize..."
+    
+    # Set NextCloud auto-configuration environment variables
+    export NEXTCLOUD_INIT_HTACCESS=true
+    export MYSQL_HOST="$DB_HOST"
+    export MYSQL_PORT="$DB_PORT"
+    export MYSQL_USER="$DB_USER"
+    export MYSQL_PASSWORD="$DB_PASS"
+    export MYSQL_DATABASE="$DB_NAME"
+    export REDIS_HOST="$REDIS_HOST"
+    export REDIS_HOST_PORT="$REDIS_PORT"
+    
     # Run original NextCloud entrypoint in background to populate files
     /entrypoint.sh apache2-foreground &
     ORIGINAL_PID=$!
     
-    # Wait for files to appear
-    for i in {1..30}; do
-        if [ -f "/var/www/html/index.php" ]; then
-            echo "✅ NextCloud files now available!"
+    # Wait for NextCloud initialization to complete
+    for i in {1..60}; do
+        if [ -f "/var/www/html/config/config.php" ] && grep -q "installed.*true" /var/www/html/config/config.php 2>/dev/null; then
+            echo "✅ NextCloud initialization complete!"
             # Kill the background process
             kill $ORIGINAL_PID 2>/dev/null || true
+            sleep 2
             break
+        elif [ -f "/var/www/html/index.php" ]; then
+            echo "📁 NextCloud files available, waiting for config... ($i/60)"
+        else
+            echo "⏳ Waiting for NextCloud initialization... ($i/60)"
         fi
-        echo "⏳ Waiting for NextCloud files... ($i/30)"
         sleep 2
     done
     
-    # Reapply our configuration
-    chown www-data:www-data /var/www/html/config/config.php 2>/dev/null || true
+    # Now enhance the configuration with our optimizations
+    echo "🔧 Enhancing NextCloud configuration..."
+    enhance_nextcloud_config
+else
+    echo "✅ NextCloud files already present"
+    # Create initial config for first-time setup
+    create_initial_config
+fi
+
+# Final verification
+if [ -f "/var/www/html/index.php" ]; then
+    echo "✅ NextCloud ready for startup"
+else
+    echo "❌ NextCloud files still missing after initialization!"
+    exit 1
 fi
 
 # Start supervisor
