@@ -20,16 +20,36 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    - Add this repository as a service (or fork first if you want to customize)
 2. **Set environment variables** in Railway dashboard:
    ```
-   # Database Configuration (use Railway's standard variable names)
+   # Database Configuration (Railway provides these automatically)
    PGHOST=${{Postgres.PGHOST}}
+   PGPORT=${{Postgres.PGPORT}}
+   PGUSER=${{Postgres.PGUSER}}
+   PGPASSWORD=${{Postgres.PGPASSWORD}}
+   PGDATABASE=${{Postgres.PGDATABASE}}
+   
+   # Redis Configuration (Railway provides these automatically)
+   REDIS_HOST=${{Redis.REDIS_HOST}}
+   REDIS_PORT=${{Redis.REDIS_PORT}}
+   REDIS_PASSWORD=${{Redis.REDIS_PASSWORD}}
    
    # NextCloud Configuration
    NEXTCLOUD_TRUSTED_DOMAINS=${{RAILWAY_PUBLIC_DOMAIN}} localhost
+   NEXTCLOUD_ADMIN_USER=admin
+   NEXTCLOUD_ADMIN_PASSWORD=secure_password_here
+   
+   # Optional NextCloud Settings
+   NEXTCLOUD_DATA_DIR=/var/www/html/data
+   NEXTCLOUD_TABLE_PREFIX=oc_
+   NEXTCLOUD_UPDATE_CHECKER=false
+   
+   # Optional Performance Settings
+   PHP_MEMORY_LIMIT=512M
+   PHP_UPLOAD_LIMIT=2G
    ```
    
-   > **Note:** Railway automatically provides `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, and `PGHOST` when you add a PostgreSQL service. You only need to manually set `PGHOST` and `NEXTCLOUD_TRUSTED_DOMAINS`.
-
-   > **Important:** Database connection is pre-configured automatically. You'll only need to create an admin account through the setup wizard.
+   > **Important:** Database and Redis connections are pre-configured automatically. You can either use the setup wizard to create an admin account, or set `NEXTCLOUD_ADMIN_USER` and `NEXTCLOUD_ADMIN_PASSWORD` for automatic setup.
+   
+   > **Security:** Change the default admin password to something secure before deployment.
    
    > **Note:** `NEXTCLOUD_TRUSTED_DOMAINS` uses the public domain for security validation (allowed access domains), not for outbound connections, so no egress fees apply.
 
@@ -79,15 +99,36 @@ Generate secrets: `openssl rand -hex 32`
 
 ## 📊 Environment Variables
 
-### Auto-configured by template:
-- `POSTGRES_*` - Database connection
-- `REDIS_*` - Cache connection
-- `NEXTCLOUD_TRUSTED_DOMAINS` - Railway domain
+### Database (Auto-configured by Railway):
+- `PGHOST` - PostgreSQL host (Railway provides automatically)
+- `PGPORT` - PostgreSQL port (Railway provides automatically)  
+- `PGUSER` - PostgreSQL username (Railway provides automatically)
+- `PGPASSWORD` - PostgreSQL password (Railway provides automatically)
+- `PGDATABASE` - PostgreSQL database name (Railway provides automatically)
 
-### User Setup:
-- Create admin account through web setup wizard (database pre-configured)
+### Redis (Auto-configured by Railway):
+- `REDIS_HOST` - Redis host (Railway provides automatically)
+- `REDIS_PORT` - Redis port (Railway provides automatically)
+- `REDIS_PASSWORD` - Redis password (Railway provides automatically)
 
-### Optional (for Talk):
+### NextCloud Configuration (Required):
+- `NEXTCLOUD_TRUSTED_DOMAINS` - Allowed domains for access security
+
+### NextCloud Admin (Optional):
+- `NEXTCLOUD_ADMIN_USER` - Admin username for automatic setup
+- `NEXTCLOUD_ADMIN_PASSWORD` - Admin password for automatic setup
+- If not set, you'll use the setup wizard to create admin account
+
+### NextCloud Optional Settings:
+- `NEXTCLOUD_DATA_DIR` - Data directory path (default: `/var/www/html/data`)
+- `NEXTCLOUD_TABLE_PREFIX` - Database table prefix (default: `oc_`)
+- `NEXTCLOUD_UPDATE_CHECKER` - Enable update checker (default: `false`)
+
+### Performance Settings:
+- `PHP_MEMORY_LIMIT` - PHP memory limit (default: `512M`)
+- `PHP_UPLOAD_LIMIT` - File upload size limit (default: `2G`)
+
+### Talk High Performance Backend (Optional):
 - `SIGNALING_SECRET` - Talk HPB secret
 - `HPB_URL` - Talk HPB service URL
 
