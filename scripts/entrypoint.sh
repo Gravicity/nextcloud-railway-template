@@ -5,7 +5,7 @@ echo "🚀 Starting NextCloud Railway deployment..."
 
 # Debug: Print all environment variables starting with POSTGRES or REDIS
 echo "🔍 Debug: Environment variables:"
-env | grep -E "^(POSTGRES|REDIS|RAILWAY|PG)" | sort
+env | grep -E "^(POSTGRES|REDIS|RAILWAY|PG|NEXTCLOUD|PHP)" | sort
 
 # Also check for any database-related variables
 echo "🔍 Database-related variables:"
@@ -43,20 +43,46 @@ export POSTGRES_PORT=${POSTGRES_PORT:-5432}
 export POSTGRES_USER=${POSTGRES_USER:-postgres}
 export POSTGRES_DB=${POSTGRES_DB:-nextcloud}
 
+# Redis configuration
+export REDIS_HOST=${REDIS_HOST:-localhost}
+export REDIS_PORT=${REDIS_PORT:-6379}
+export REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+# NextCloud configuration variables
+export NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-}
+export NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD:-}
+export NEXTCLOUD_DATA_DIR=${NEXTCLOUD_DATA_DIR:-/var/www/html/data}
+export NEXTCLOUD_TABLE_PREFIX=${NEXTCLOUD_TABLE_PREFIX:-oc_}
+export NEXTCLOUD_UPDATE_CHECKER=${NEXTCLOUD_UPDATE_CHECKER:-false}
+
+# PHP performance settings
+export PHP_MEMORY_LIMIT=${PHP_MEMORY_LIMIT:-512M}
+export PHP_UPLOAD_LIMIT=${PHP_UPLOAD_LIMIT:-2G}
+
 # Configure Apache for Railway's PORT
 export PORT=${PORT:-80}
 echo "Listen $PORT" > /etc/apache2/ports.conf
 echo "✅ Apache configured for port: $PORT"
 
 # Display configuration info  
-echo "📊 Final Database Config:"
+echo "📊 Final Configuration:"
+echo "📊 Database Config:"
 echo "  POSTGRES_HOST: ${POSTGRES_HOST}"
 echo "  POSTGRES_PORT: ${POSTGRES_PORT}"  
 echo "  POSTGRES_USER: ${POSTGRES_USER}"
 echo "  POSTGRES_DB: ${POSTGRES_DB}"
 echo "  Full connection: ${POSTGRES_USER}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
-echo "🔴 Redis: ${REDIS_HOST}:${REDIS_HOST_PORT}"
-echo "🌐 Trusted domains: ${NEXTCLOUD_TRUSTED_DOMAINS}"
+echo "🔴 Redis Config:"
+echo "  REDIS_HOST: ${REDIS_HOST}"
+echo "  REDIS_PORT: ${REDIS_PORT}"
+echo "🌐 NextCloud Config:"
+echo "  Trusted domains: ${NEXTCLOUD_TRUSTED_DOMAINS}"
+echo "  Admin user: ${NEXTCLOUD_ADMIN_USER:-'(setup wizard)'}"
+echo "  Data directory: ${NEXTCLOUD_DATA_DIR}"
+echo "  Table prefix: ${NEXTCLOUD_TABLE_PREFIX}"
+echo "⚡ Performance Config:"
+echo "  PHP Memory Limit: ${PHP_MEMORY_LIMIT}"
+echo "  PHP Upload Limit: ${PHP_UPLOAD_LIMIT}"
 
 # Wait for NextCloud entrypoint to initialize first
 echo "🌟 Starting NextCloud with original entrypoint..."
@@ -70,10 +96,11 @@ echo "🔧 Setting up database auto-configuration..."
 
 # Debug: Show what we're working with
 echo "Hook script environment:"
-echo "  POSTGRES_HOST: ${POSTGRES_HOST}"
-echo "  POSTGRES_PORT: ${POSTGRES_PORT}"
-echo "  POSTGRES_USER: ${POSTGRES_USER}"
-echo "  POSTGRES_DB: ${POSTGRES_DB}"
+echo "  Database: ${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+echo "  Redis: ${REDIS_HOST}:${REDIS_PORT}"
+echo "  Admin user: ${NEXTCLOUD_ADMIN_USER:-'(setup wizard)'}"
+echo "  Data dir: ${NEXTCLOUD_DATA_DIR}"
+echo "  Table prefix: ${NEXTCLOUD_TABLE_PREFIX}"
 
 # Only create autoconfig if NextCloud isn't already installed
 if [ ! -f "/var/www/html/config/config.php" ]; then
@@ -98,12 +125,24 @@ if [ ! -f "/var/www/html/config/config.php" ]; then
     "dbuser" => "${POSTGRES_USER}",
     "dbpass" => "${POSTGRES_PASSWORD}",
     "dbhost" => "${POSTGRES_HOST}:${POSTGRES_PORT:-5432}",
-    "dbtableprefix" => "oc_",
-    "directory" => "/var/www/html/data",
+    "dbtableprefix" => "${NEXTCLOUD_TABLE_PREFIX}",
+    "directory" => "${NEXTCLOUD_DATA_DIR}",
     "trusted_domains" => array(
         0 => "localhost",
         1 => "${RAILWAY_PUBLIC_DOMAIN}",
     ),
+AUTOEOF
+
+    # Add admin user configuration if provided
+    if [ -n "${NEXTCLOUD_ADMIN_USER}" ] && [ -n "${NEXTCLOUD_ADMIN_PASSWORD}" ]; then
+        cat >> /var/www/html/config/autoconfig.php << AUTOEOF
+    "adminlogin" => "${NEXTCLOUD_ADMIN_USER}",
+    "adminpass" => "${NEXTCLOUD_ADMIN_PASSWORD}",
+AUTOEOF
+    fi
+
+    # Close the autoconfig array
+    cat >> /var/www/html/config/autoconfig.php << AUTOEOF
 );
 AUTOEOF
 
