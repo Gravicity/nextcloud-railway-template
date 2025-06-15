@@ -1,8 +1,8 @@
-# NextCloud with High-Performance Backend for Railway
+# NextCloud Railway Template
 
-A production-ready NextCloud deployment optimized for Railway.com that resolves all common security warnings.
+A production-ready NextCloud deployment optimized for Railway.com with PostgreSQL, Redis, and security warnings fixed.
 
-> **⚠️ Important**: Railway doesn't support environment variables in config files. You'll need to set variables through the Railway dashboard.
+> **⚠️ Important**: This template uses PostgreSQL (not MySQL) to match Railway's working template structure.
 
 ## ✅ What This Template Fixes
 
@@ -24,10 +24,10 @@ After deployment, these NextCloud warnings will be **RESOLVED**:
 ### Step 1: Create Services in Railway
 
 1. **Create new project** in Railway
-2. **Add MySQL service**: 
-   - Go to project → Add Service → Database → MySQL
+2. **Add PostgreSQL service**: 
+   - Go to project → Add Service → Database → PostgreSQL
 3. **Add Redis service**:
-   - Go to project → Add Service → Database → Redis
+   - Go to project → Add Service → Database → Redis  
 4. **Add NextCloud service**:
    - Go to project → Add Service → GitHub Repo
    - Connect this repository
@@ -37,11 +37,26 @@ After deployment, these NextCloud warnings will be **RESOLVED**:
 In your NextCloud service settings, **no environment variables are required!** 
 
 Railway automatically provides:
-- `DATABASE_URL` - MySQL connection string
+- `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_URL` - Redis connection string  
 - `RAILWAY_PUBLIC_DOMAIN` - Your app's public URL
 
 The entrypoint script automatically parses these and configures NextCloud.
+
+### Step 3: Fix Security Warnings (After Deployment)
+
+Once NextCloud is deployed and accessible, run this command to fix all security warnings:
+
+```bash
+railway run /usr/local/bin/fix-warnings.sh
+```
+
+This will automatically:
+- Add missing database columns and indices
+- Run mimetype migrations  
+- Configure maintenance window
+- Set default phone region
+- Enable Redis caching
 
 ### Step 3: Optional - Deploy Talk HPB
 
