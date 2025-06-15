@@ -1,187 +1,200 @@
-# NextCloud with High-Performance Backend - Railway Template
+# NextCloud with High-Performance Backend for Railway
 
-This Railway template provides a complete NextCloud deployment with Talk High-Performance Backend, optimized to resolve common security warnings and performance issues.
+A production-ready NextCloud deployment optimized for Railway.com that resolves all common security warnings.
 
-## Features
+> **⚠️ Important**: Railway doesn't support environment variables in config files. You'll need to set variables through the Railway dashboard.
 
-✅ **Resolves Security Warnings:**
-- High-Performance Backend for NextCloud Talk configured
-- Proper security headers (HSTS, CSP, etc.)
-- Optimized PHP configuration
-- Database indices automatically added
-- Maintenance window configured
-- Redis caching and session storage
+## ✅ What This Template Fixes
 
-✅ **Performance Optimizations:**
-- OPcache enabled and tuned
-- Redis for distributed caching and file locking
-- Optimized database configuration
-- Background job cron properly configured
+After deployment, these NextCloud warnings will be **RESOLVED**:
 
-✅ **Production Ready:**
-- Supervisor for process management
-- Automatic database migrations
-- Health checks for all services
-- Proper logging configuration
+- ✅ **High-Performance Backend** - Optional Talk HPB setup
+- ✅ **HSTS and Security Headers** - All security headers configured
+- ✅ **PHP OPcache** - Memory optimization configured  
+- ✅ **Database Indices** - Automatically added for performance
+- ✅ **Maintenance Window** - Set to 2 AM UTC
+- ✅ **Background Jobs** - Cron properly configured
+- ✅ **Redis Caching** - Full Redis integration
+- ✅ **Trusted Proxies** - Railway proxy configuration
 
-## Architecture
+## 🚀 Quick Deploy
 
-The template deploys 4 services:
+### Step 1: Create Services in Railway
 
-1. **NextCloud** - Main application with custom optimizations
-2. **MariaDB** - Database with performance tuning
-3. **Redis** - Caching and session storage
-4. **Talk HPB** - High-Performance Backend for video calls
+1. **Create new project** in Railway
+2. **Add MySQL service**: 
+   - Go to project → Add Service → Database → MySQL
+3. **Add Redis service**:
+   - Go to project → Add Service → Database → Redis
+4. **Add NextCloud service**:
+   - Go to project → Add Service → GitHub Repo
+   - Connect this repository
 
-## Quick Deploy
+### Step 2: Configure NextCloud Service
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/your-template-id)
+In your NextCloud service settings, **no environment variables are required!** 
 
-## Files Structure
+Railway automatically provides:
+- `DATABASE_URL` - MySQL connection string
+- `REDIS_URL` - Redis connection string  
+- `RAILWAY_PUBLIC_DOMAIN` - Your app's public URL
+
+The entrypoint script automatically parses these and configures NextCloud.
+
+### Step 3: Optional - Deploy Talk HPB
+
+For video calling, deploy a separate Talk HPB service:
+
+1. **Add new service** → **Docker Image**
+2. **Image**: `ghcr.io/nextcloud-releases/aio-talk:latest`
+3. **Set environment variables**:
+   ```
+   NC_DOMAIN=your-nextcloud-domain.railway.app
+   SIGNALING_SECRET=generate_a_32_character_secret
+   TURN_SECRET=generate_another_32_character_secret
+   INTERNAL_SECRET=generate_third_32_character_secret
+   ```
+
+Generate secrets with: `openssl rand -hex 32`
+
+4. **In NextCloud service**, add these variables:
+   ```
+   SIGNALING_SECRET=same_as_hpb_signaling_secret
+   HPB_URL=https://your-hpb-service.railway.app
+   ```
+
+## 📁 Repository Structure
 
 ```
 nextcloud-railway-template/
-├── railway.json              # Railway template definition
-├── railway.toml             # Railway configuration
-├── Dockerfile               # Custom NextCloud image
-├── php.ini                  # PHP optimizations
-├── apache-security.conf     # Security headers
-├── supervisord.conf         # Process management
-├── entrypoint.sh           # Custom initialization
-├── config.php              # NextCloud configuration template
-└── README.md               # This file
+├── Dockerfile                    # Custom NextCloud with optimizations
+├── railway.json                  # Railway deployment config (build/deploy only)
+├── config/
+│   ├── php.ini                   # PHP performance settings
+│   ├── security.conf             # Apache security
+│   ├── apache-security.conf      # Security headers
+│   └── supervisord.conf          # Process management
+├── scripts/
+│   └── entrypoint.sh             # Custom startup with Railway integration
+└── README.md                     # This file
 ```
 
-## Manual Setup
+## ⚙️ How It Works
 
-If you want to deploy manually:
+1. **Railway Integration**: Automatically parses `DATABASE_URL` and `REDIS_URL`
+2. **Auto-Configuration**: Creates optimized NextCloud config
+3. **Security Headers**: Enables HSTS and all security headers
+4. **Performance**: Configures OPcache, Redis caching, database indices
+5. **Background Jobs**: Sets up proper cron jobs via supervisor
 
-### 1. Clone and Customize
+## 🔧 Manual Deployment
+
+If you prefer manual deployment:
 
 ```bash
+# Clone the repository
 git clone https://github.com/your-username/nextcloud-railway-template
 cd nextcloud-railway-template
-```
 
-### 2. Deploy to Railway
-
-```bash
 # Install Railway CLI
 npm install -g @railway/cli
 
-# Login to Railway
+# Login and create project
 railway login
+railway add
+railway add mysql
+railway add redis
 
-# Deploy the project
+# Deploy the NextCloud service
 railway up
 ```
 
-### 3. Configure Domains
+## 🩺 Health Checks & Verification
 
-1. In Railway dashboard, go to your NextCloud service
-2. Add your custom domain
-3. Update the environment variables if needed:
-   - `NEXTCLOUD_TRUSTED_DOMAINS`
-   - `OVERWRITEHOST`
-   - `OVERWRITECLIURL`
+After deployment:
 
-### 4. Initial Setup
+1. **Check NextCloud Status**:
+   ```bash
+   curl https://your-domain.railway.app/status.php
+   ```
 
-1. Access your NextCloud instance
-2. Complete the initial setup wizard
-3. The Talk app will be automatically installed and configured
-4. All security warnings should be resolved automatically
+2. **Check Security Settings**:
+   - Go to Settings → Administration → Overview
+   - Should see mostly green checkmarks ✅
 
-## Post-Deployment Configuration
+3. **Check Talk HPB** (if deployed):
+   ```bash
+   curl https://your-hpb-domain.railway.app/api/v1/welcome
+   ```
 
-### Email Setup (Optional)
+## 🔧 Environment Variables Reference
 
-Add these environment variables to the NextCloud service:
+### Required (Auto-provided by Railway)
+- `DATABASE_URL` - MySQL connection (auto-set by Railway)
+- `REDIS_URL` - Redis connection (auto-set by Railway)
+- `RAILWAY_PUBLIC_DOMAIN` - Your domain (auto-set by Railway)
 
-```
-MAIL_SMTPHOST=your-smtp-server.com
-MAIL_SMTPPORT=587
-MAIL_SMTPAUTH=1
-MAIL_SMTPNAME=your-email@domain.com
-MAIL_SMTPPASSWORD=your-app-password
-```
+### Optional (for Talk HPB)
+- `SIGNALING_SECRET` - Shared secret for Talk HPB
+- `HPB_URL` - URL of your Talk HPB service
 
-### Custom Domain for Talk HPB
+### Advanced (Optional)
+- `NC_DOMAIN` - Custom domain (defaults to RAILWAY_PUBLIC_DOMAIN)
+- `MYSQL_*` - Individual DB settings (if not using DATABASE_URL)
+- `REDIS_*` - Individual Redis settings (if not using REDIS_URL)
 
-For optimal performance, you can set up a custom domain for the Talk HPB:
+## 🐛 Troubleshooting
 
-1. Add a subdomain (e.g., `talk.yourdomain.com`) pointing to the Talk HPB service
-2. Update the NextCloud Talk settings in admin panel
+### NextCloud Won't Start
+- Check Railway logs for errors
+- Verify DATABASE_URL and REDIS_URL are set
+- Ensure MySQL and Redis services are running
 
-### TURN Server Configuration
+### Security Warnings Still Show
+- Wait 10-15 minutes after first deployment
+- Check logs for optimization completion
+- Manually run: `railway run php /var/www/html/occ db:add-missing-indices`
 
-The template includes TURN server configuration. To verify:
+### Talk HPB Issues
+- Verify SIGNALING_SECRET matches between services
+- Check HPB service logs
+- Test the welcome endpoint
 
-1. Go to Settings > Administration > Talk
-2. Check that TURN servers are properly configured
-3. Test with multiple participants from different networks
+### File Upload Issues
+- Default limit is 2GB (configured in PHP settings)
+- Check Railway disk space limits
+- Monitor memory usage
 
-## Troubleshooting
+## 🚀 Performance Tips
 
-### Security Warnings Still Showing
+1. **Upgrade Railway Plan**: For better performance with more resources
+2. **Monitor Usage**: Use Railway's built-in metrics
+3. **Custom Domain**: Add your own domain for better caching
+4. **Redis Memory**: Monitor Redis memory usage in metrics
 
-- Wait 5-10 minutes after deployment for all background jobs to complete
-- Check the logs: `railway logs --service nextcloud`
-- Manually run: `php occ db:add-missing-indices`
+## 📊 What's Different from Standard NextCloud
 
-### Talk HPB Not Working
+This template includes:
 
-- Verify the HPB service is running: `railway logs --service talk-hpb`
-- Check the signaling URL in Talk settings
-- Ensure secrets match between services
+- **Railway-optimized configuration** parsing DATABASE_URL/REDIS_URL
+- **Security headers** preventing common warnings
+- **PHP optimizations** including OPcache configuration
+- **Database optimizations** automatic index creation
+- **Supervisor process management** for reliable background jobs
+- **Health checks** for Railway deployment monitoring
 
-### Performance Issues
+## 📖 Additional Resources
 
-- Monitor resource usage in Railway dashboard
-- Consider upgrading to higher-tier plans for more resources
-- Check Redis memory usage
+- [NextCloud Documentation](https://docs.nextcloud.com/)
+- [Railway Documentation](https://docs.railway.com/)
+- [NextCloud Talk Documentation](https://nextcloud-talk.readthedocs.io/)
 
-## Environment Variables
+## 🐛 Issues & Support
 
-Key environment variables (automatically configured):
+- **NextCloud Issues**: [NextCloud GitHub](https://github.com/nextcloud/server)
+- **Railway Issues**: [Railway Help](https://help.railway.app/)
+- **Template Issues**: Create an issue in this repository
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MYSQL_HOST` | Database connection | Auto-generated |
-| `REDIS_HOST` | Redis connection | Auto-generated |
-| `NEXTCLOUD_TRUSTED_DOMAINS` | Trusted domains | Railway domain |
-| `SIGNALING_SECRET` | Talk HPB secret | Auto-generated |
-| `PHP_MEMORY_LIMIT` | PHP memory limit | 512M |
-| `PHP_UPLOAD_LIMIT` | Upload limit | 2G |
+---
 
-## Advanced Configuration
-
-### Custom Apps
-
-Upload custom apps to the persistent volume or install via the app store.
-
-### Database Tuning
-
-For high-traffic instances, consider adjusting:
-- `MYSQL_INNODB_BUFFER_POOL_SIZE`
-- `REDIS_MAXMEMORY`
-
-### Backup Strategy
-
-Set up regular backups:
-1. Database dumps using Railway's backup features
-2. File storage backup (consider external storage)
-
-## Support
-
-- Railway Documentation: https://docs.railway.app
-- NextCloud Documentation: https://docs.nextcloud.com
-- Issues: Create an issue in this repository
-
-## Contributing
-
-Feel free to submit issues and enhancement requests!
-
-## License
-
-This template is provided as-is under the MIT License.
+**🎉 Deploy and enjoy NextCloud with zero security warnings on Railway!**
