@@ -20,21 +20,14 @@ A production-ready NextCloud deployment for Railway.com with PostgreSQL, Redis, 
    - Add this repository as a service (or fork first if you want to customize)
 2. **Set environment variables** in Railway dashboard:
    ```
-   # Database Configuration (copy these exactly - Railway provides these)
+   # Database Configuration (required - Railway doesn't auto-provide POSTGRES_HOST)
    POSTGRES_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
-   POSTGRES_PORT=5432
-   POSTGRES_USER=${{Postgres.POSTGRES_USER}}
-   POSTGRES_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
-   POSTGRES_DB=${{Postgres.POSTGRES_DB}}
-   
-   # Redis Configuration  
-   REDIS_HOST=${{Redis.RAILWAY_PRIVATE_DOMAIN}}
-   REDIS_HOST_PORT=${{Redis.REDISPORT}}
-   REDIS_HOST_PASSWORD=${{Redis.REDIS_PASSWORD}}
    
    # NextCloud Configuration
    NEXTCLOUD_TRUSTED_DOMAINS=${{RAILWAY_PUBLIC_DOMAIN}} localhost
    ```
+   
+   > **Note:** Railway automatically provides `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` when you add a PostgreSQL service. You only need to manually set `POSTGRES_HOST` and `NEXTCLOUD_TRUSTED_DOMAINS`.
 
    > **Important:** Database connection is pre-configured automatically. You'll only need to create an admin account through the setup wizard.
    
