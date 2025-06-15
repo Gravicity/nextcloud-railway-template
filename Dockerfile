@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     redis-tools \
     postgresql-client \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install smbclient PHP extension and ensure PostgreSQL support
