@@ -5,37 +5,59 @@ echo "🚀 Starting NextCloud Railway deployment..."
 
 # Function to wait for database
 wait_for_db() {
-    if [ -n "$DATABASE_URL" ]; then
+    if [ -n "$DATABASE_URL" ] || [ -n "$MYSQL_URL" ] || [ -n "$DB_HOST" ]; then
         echo "⏳ Waiting for database to be ready..."
-        # Parse DATABASE_URL (format: mysql://user:pass@host:port/dbname)
-        DB_HOST=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@\([^:]*\):.*|\1|p')
-        DB_PORT=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:[^@]*@[^:]*:\([0-9]*\)/.*|\1|p')
-        DB_USER=$(echo $DATABASE_URL | sed -n 's|mysql://\([^:]*\):.*|\1|p')
-        DB_PASS=$(echo $DATABASE_URL | sed -n 's|mysql://[^:]*:\([^@]*\)@.*|\1|p')
+        local max_attempts=30
+        local attempt=0
         
-        while ! mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; do
-            sleep 2
+        while [ $attempt -lt $max_attempts ]; do
+            if mysqladmin ping -h"$DB_HOST" -P"$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --silent 2>/dev/null; then
+                echo "✅ Database is ready!"
+                return 0
+            fi
+            echo "⏳ Database not ready, waiting... (attempt $((attempt + 1))/$max_attempts)"
+            sleep 5
+            attempt=$((attempt + 1))
         done
-        echo "✅ Database is ready!"
+        
+        echo "❌ Database connection failed after $max_attempts attempts"
+        echo "🔍 Debug info:"
+        echo "   DB_HOST: $DB_HOST"
+        echo "   DB_PORT: $DB_PORT"
+        echo "   DB_USER: $DB_USER"
+        echo "   DB_NAME: $DB_NAME"
+        return 1
     else
-        echo "⚠️ No DATABASE_URL found - using environment variables"
+        echo "⚠️ No database configuration found - proceeding anyway"
+        return 0
     fi
 }
 
 # Function to wait for Redis
 wait_for_redis() {
-    if [ -n "$REDIS_URL" ]; then
+    if [ -n "$REDIS_URL" ] || [ -n "$REDIS_HOST" ]; then
         echo "⏳ Waiting for Redis to be ready..."
-        # Parse REDIS_URL (format: redis://host:port or redis://host:port/db)
-        REDIS_HOST=$(echo $REDIS_URL | sed -n 's|redis://\([^:]*\):.*|\1|p')
-        REDIS_PORT=$(echo $REDIS_URL | sed -n 's|redis://[^:]*:\([0-9]*\).*|\1|p')
+        local max_attempts=30
+        local attempt=0
         
-        while ! redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping > /dev/null 2>&1; do
-            sleep 2
+        while [ $attempt -lt $max_attempts ]; do
+            if redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping > /dev/null 2>&1; then
+                echo "✅ Redis is ready!"
+                return 0
+            fi
+            echo "⏳ Redis not ready, waiting... (attempt $((attempt + 1))/$max_attempts)"
+            sleep 5
+            attempt=$((attempt + 1))
         done
-        echo "✅ Redis is ready!"
+        
+        echo "❌ Redis connection failed after $max_attempts attempts"
+        echo "🔍 Debug info:"
+        echo "   REDIS_HOST: $REDIS_HOST"
+        echo "   REDIS_PORT: $REDIS_PORT"
+        return 1
     else
-        echo "⚠️ No REDIS_URL found - using default Redis settings"
+        echo "⚠️ No Redis configuration found - proceeding anyway"
+        return 0
     fi
 }
 
@@ -90,6 +112,16 @@ parse_railway_urls() {
 # Create NextCloud configuration
 create_nextcloud_config() {
     echo "🔧 Creating NextCloud configuration..."
+    
+    # Debug output
+    echo "🔍 Configuration variables:"
+    echo "   DB_HOST: ${DB_HOST}"
+    echo "   DB_PORT: ${DB_PORT}"
+    echo "   DB_USER: ${DB_USER}"
+    echo "   DB_NAME: ${DB_NAME}"
+    echo "   REDIS_HOST: ${REDIS_HOST}"
+    echo "   REDIS_PORT: ${REDIS_PORT}"
+    echo "   NC_DOMAIN: ${NC_DOMAIN}"
     
     # Ensure config directory exists
     mkdir -p /var/www/html/config
