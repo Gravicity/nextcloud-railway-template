@@ -179,4 +179,44 @@ cat > /var/www/html/config/config.php << EOF
 
   'check_for_working_wellknown_setup' => false,
   'check_for_working_htaccess' => false,
-  'update
+  'updatechecker' => false,
+  
+  'installed' => false,
+);
+EOF
+
+chown www-data:www-data /var/www/html/config/config.php
+chmod 640 /var/www/html/config/config.php
+echo "✅ NextCloud configuration created!"
+
+# Set up cron jobs
+echo "⏰ Setting up NextCloud cron jobs..."
+echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
+echo "✅ Cron jobs configured!"
+
+# If NextCloud files are missing, run the original entrypoint first
+if [ ! -f "/var/www/html/index.php" ]; then
+    echo "🔄 NextCloud files missing - running original entrypoint to initialize..."
+    # Run original NextCloud entrypoint in background to populate files
+    /entrypoint.sh apache2-foreground &
+    ORIGINAL_PID=$!
+    
+    # Wait for files to appear
+    for i in {1..30}; do
+        if [ -f "/var/www/html/index.php" ]; then
+            echo "✅ NextCloud files now available!"
+            # Kill the background process
+            kill $ORIGINAL_PID 2>/dev/null || true
+            break
+        fi
+        echo "⏳ Waiting for NextCloud files... ($i/30)"
+        sleep 2
+    done
+    
+    # Reapply our configuration
+    chown www-data:www-data /var/www/html/config/config.php 2>/dev/null || true
+fi
+
+# Start supervisor
+echo "🌟 Starting NextCloud with supervisor..."
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
