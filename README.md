@@ -78,7 +78,7 @@ railway login
 railway link
 
 # Run the fix script (only after setup is complete)
-railway run /usr/local/bin/fix-warnings.sh
+railway run /usr/local/bin/fix-warnings-DISABLED.sh
 ```
 
 This automatically:
