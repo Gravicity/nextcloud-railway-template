@@ -5,7 +5,11 @@ echo "🚀 Starting NextCloud Railway deployment..."
 
 # Debug: Print all environment variables starting with POSTGRES or REDIS
 echo "🔍 Debug: Environment variables:"
-env | grep -E "^(POSTGRES|REDIS|RAILWAY)" | sort
+env | grep -E "^(POSTGRES|REDIS|RAILWAY|PG)" | sort
+
+# Also check for any database-related variables
+echo "🔍 Database-related variables:"
+env | grep -iE "(database|db|host)" | sort
 
 # Check for environment variables - we need at least some PostgreSQL config
 if [ -z "$POSTGRES_HOST" ] && [ -z "$DATABASE_URL" ] && [ -z "$POSTGRES_USER" ]; then
@@ -43,7 +47,12 @@ echo "Listen $PORT" > /etc/apache2/ports.conf
 echo "✅ Apache configured for port: $PORT"
 
 # Display configuration info  
-echo "📊 Database: ${POSTGRES_USER}@${POSTGRES_HOST}:${POSTGRES_PORT:-5432}/${POSTGRES_DB}"
+echo "📊 Final Database Config:"
+echo "  POSTGRES_HOST: ${POSTGRES_HOST}"
+echo "  POSTGRES_PORT: ${POSTGRES_PORT}"  
+echo "  POSTGRES_USER: ${POSTGRES_USER}"
+echo "  POSTGRES_DB: ${POSTGRES_DB}"
+echo "  Full connection: ${POSTGRES_USER}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
 echo "🔴 Redis: ${REDIS_HOST}:${REDIS_HOST_PORT}"
 echo "🌐 Trusted domains: ${NEXTCLOUD_TRUSTED_DOMAINS}"
 
@@ -57,9 +66,26 @@ cat > /docker-entrypoint-hooks.d/before-starting/01-setup-autoconfig.sh << 'EOF'
 #!/bin/bash
 echo "🔧 Setting up database auto-configuration..."
 
+# Debug: Show what we're working with
+echo "Hook script environment:"
+echo "  POSTGRES_HOST: ${POSTGRES_HOST}"
+echo "  POSTGRES_PORT: ${POSTGRES_PORT}"
+echo "  POSTGRES_USER: ${POSTGRES_USER}"
+echo "  POSTGRES_DB: ${POSTGRES_DB}"
+
 # Only create autoconfig if NextCloud isn't already installed
 if [ ! -f "/var/www/html/config/config.php" ]; then
     mkdir -p /var/www/html/config
+    
+    # Test database connection first
+    echo "🔍 Testing database connection..."
+    if command -v pg_isready >/dev/null 2>&1; then
+        if pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT:-5432}" -U "${POSTGRES_USER}"; then
+            echo "✅ Database connection test passed"
+        else
+            echo "⚠️ Database connection test failed - but continuing anyway"
+        fi
+    fi
     
     # Create autoconfig.php for automatic database setup
     cat > /var/www/html/config/autoconfig.php << AUTOEOF
@@ -84,6 +110,7 @@ AUTOEOF
     chmod 640 /var/www/html/config/autoconfig.php
     
     echo "✅ Auto-configuration created successfully"
+    echo "Database host configured as: ${POSTGRES_HOST}:${POSTGRES_PORT:-5432}"
 else
     echo "✅ NextCloud already configured"
 fi
