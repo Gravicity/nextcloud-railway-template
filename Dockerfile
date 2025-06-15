@@ -36,11 +36,13 @@ RUN chmod +x /usr/local/bin/custom-entrypoint.sh
 
 # Create necessary directories and set permissions
 RUN mkdir -p /var/log/supervisor && \
+    # Ensure NextCloud files are present and accessible
+    ls -la /var/www/html/ && \
+    # Set proper ownership and permissions
     chown -R www-data:www-data /var/www/html && \
-    chmod +x /usr/local/bin/custom-entrypoint.sh && \
-    # Ensure NextCloud files have correct permissions
     find /var/www/html -type f -exec chmod 644 {} \; && \
-    find /var/www/html -type d -exec chmod 755 {} \;
+    find /var/www/html -type d -exec chmod 755 {} \; && \
+    chmod +x /usr/local/bin/custom-entrypoint.sh
 
 # Expose HTTP port
 EXPOSE 80
