@@ -109,7 +109,33 @@ parse_railway_urls() {
     echo "🔴 Redis: ${REDIS_HOST}:${REDIS_PORT}"
 }
 
-# Create NextCloud configuration
+# Verify NextCloud files are accessible
+verify_nextcloud_files() {
+    echo "🔍 Verifying NextCloud files..."
+    
+    # Check if index.php exists
+    if [ -f "/var/www/html/index.php" ]; then
+        echo "✅ NextCloud index.php found"
+    else
+        echo "❌ NextCloud index.php missing! Checking file structure..."
+        ls -la /var/www/html/
+        
+        # Try to fix by ensuring proper ownership
+        chown -R www-data:www-data /var/www/html/
+        chmod -R 755 /var/www/html/
+        
+        if [ -f "/var/www/html/index.php" ]; then
+            echo "✅ Fixed: NextCloud index.php now accessible"
+        else
+            echo "❌ Critical: NextCloud files missing - container may need rebuild"
+        fi
+    fi
+    
+    # Check permissions
+    local index_perms=$(stat -c "%a" /var/www/html/index.php 2>/dev/null || echo "missing")
+    echo "📁 index.php permissions: $index_perms"
+    echo "📁 /var/www/html owner: $(stat -c "%U:%G" /var/www/html/)"
+}
 create_nextcloud_config() {
     echo "🔧 Creating NextCloud configuration..."
     
@@ -241,8 +267,46 @@ configure_apache_port() {
     # Update Apache port configuration
     echo "Listen $railway_port" > /etc/apache2/ports.conf
     
-    # Update default site to use the Railway port
-    sed -i "s/<VirtualHost \*:80>/<VirtualHost *:$railway_port>/" /etc/apache2/sites-available/000-default.conf
+    # Update default site to use the Railway port and ensure proper DocumentRoot
+    cat > /etc/apache2/sites-available/000-default.conf << EOF
+<VirtualHost *:$railway_port>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+    
+    # Enable index.php as DirectoryIndex
+    DirectoryIndex index.php index.html
+    
+    # NextCloud directory configuration
+    <Directory /var/www/html>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+        
+        # Enable PHP processing
+        <IfModule mod_php8.c>
+            php_admin_flag engine on
+        </IfModule>
+    </Directory>
+    
+    # Error and access logs
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+    
+    # Security headers (additional to our security.conf)
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+</VirtualHost>
+EOF
+    
+    # Ensure PHP module is enabled
+    a2enmod php8.3 2>/dev/null || a2enmod php 2>/dev/null || echo "PHP module already enabled"
+    
+    # Test PHP functionality
+    if php -v > /dev/null 2>&1; then
+        echo "✅ PHP is working: $(php -r 'echo PHP_VERSION;')"
+    else
+        echo "❌ PHP not working - this will cause issues!"
+    fi
     
     echo "✅ Apache configured for Railway port: $railway_port"
 }
