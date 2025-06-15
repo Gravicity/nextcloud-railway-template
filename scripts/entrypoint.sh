@@ -233,6 +233,28 @@ setup_cron() {
     echo "✅ Cron jobs configured!"
 }
 
+# Configure Apache for Railway's PORT environment variable
+configure_apache_port() {
+    local railway_port=${PORT:-80}
+    echo "🌐 Configuring Apache to listen on port: $railway_port"
+    
+    # Update Apache port configuration
+    echo "Listen $railway_port" > /etc/apache2/ports.conf
+    
+    # Update default site to use the Railway port
+    sed -i "s/<VirtualHost \*:80>/<VirtualHost *:$railway_port>/" /etc/apache2/sites-available/000-default.conf
+    
+    echo "✅ Apache configured for Railway port: $railway_port"
+}
+setup_cron() {
+    echo "⏰ Setting up NextCloud cron jobs..."
+    
+    # Create cron job for NextCloud (every 5 minutes)
+    echo "*/5 * * * * php -f /var/www/html/cron.php" | crontab -u www-data -
+    
+    echo "✅ Cron jobs configured!"
+}
+
 # Post-installation optimizations (run after NextCloud setup completes)
 optimize_after_install() {
     echo "🔧 Starting post-installation optimizations..."
@@ -296,11 +318,30 @@ optimize_after_install() {
     echo "✅ Post-installation optimizations complete!"
 }
 
-# Main execution flow
+# Debug function to show what environment variables are available
+debug_environment() {
+    echo "🔍 Environment Debugging:"
+    echo "  PORT: ${PORT:-not set}"
+    echo "  RAILWAY_PUBLIC_DOMAIN: ${RAILWAY_PUBLIC_DOMAIN:-not set}"
+    echo "  DATABASE_URL: ${DATABASE_URL:+[SET]} ${DATABASE_URL:-[NOT SET]}"
+    echo "  REDIS_URL: ${REDIS_URL:+[SET]} ${REDIS_URL:-[NOT SET]}"
+    echo "  MYSQL_URL: ${MYSQL_URL:+[SET]} ${MYSQL_URL:-[NOT SET]}"
+    echo "  Individual MySQL vars:"
+    echo "    MYSQLHOST: ${MYSQLHOST:-not set}"
+    echo "    MYSQLPORT: ${MYSQLPORT:-not set}"
+    echo "    MYSQLUSER: ${MYSQLUSER:-not set}"
+    echo "    MYSQLDATABASE: ${MYSQLDATABASE:-not set}"
+    echo "  Individual Redis vars:"
+    echo "    REDISHOST: ${REDISHOST:-not set}"
+    echo "    REDISPORT: ${REDISPORT:-not set}"
+}
 echo "🚀 Starting NextCloud Railway setup..."
 
 # Parse Railway environment variables
 parse_railway_urls
+
+# Configure Apache for Railway's port
+configure_apache_port
 
 # Wait for required services
 wait_for_db
