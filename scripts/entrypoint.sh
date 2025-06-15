@@ -30,15 +30,17 @@ if [ -n "$DATABASE_URL" ] && [ -z "$POSTGRES_HOST" ]; then
     export POSTGRES_DB=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
 fi
 
-# Set defaults if still missing (but keep existing values)
+# Use Railway's standard PG* variables if POSTGRES_* aren't set
 export POSTGRES_HOST=${POSTGRES_HOST:-$PGHOST}
-export POSTGRES_HOST=${POSTGRES_HOST:-localhost}
 export POSTGRES_PORT=${POSTGRES_PORT:-$PGPORT}
-export POSTGRES_PORT=${POSTGRES_PORT:-5432}
 export POSTGRES_USER=${POSTGRES_USER:-$PGUSER}
-export POSTGRES_USER=${POSTGRES_USER:-postgres}
 export POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-$PGPASSWORD}
 export POSTGRES_DB=${POSTGRES_DB:-$PGDATABASE}
+
+# Set final defaults if still missing
+export POSTGRES_HOST=${POSTGRES_HOST:-localhost}
+export POSTGRES_PORT=${POSTGRES_PORT:-5432}
+export POSTGRES_USER=${POSTGRES_USER:-postgres}
 export POSTGRES_DB=${POSTGRES_DB:-nextcloud}
 
 # Configure Apache for Railway's PORT
